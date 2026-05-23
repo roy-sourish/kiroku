@@ -1,0 +1,533 @@
+
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Lora:ital,wght@0,400;0,600;1,400&display=swap');
+
+  .tour-wrap { font-family: 'Lora', Georgia, serif; padding: 0; }
+
+  .step-bar {
+    display: flex; align-items: center; gap: 8px;
+    padding: 12px 16px; border-bottom: 1px solid var(--color-border-tertiary);
+    overflow-x: auto; scrollbar-width: none;
+  }
+  .step-bar::-webkit-scrollbar { display: none; }
+  .step-dot {
+    width: 28px; height: 28px; border-radius: 50%; border: 1.5px solid var(--color-border-secondary);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'IBM Plex Mono', monospace; font-size: 11px;
+    color: var(--color-text-tertiary); cursor: pointer; flex-shrink: 0;
+    transition: all .2s;
+  }
+  .step-dot.active { background: var(--color-text-primary); color: var(--color-background-primary); border-color: var(--color-text-primary); }
+  .step-dot.done { background: var(--color-background-secondary); color: var(--color-text-secondary); }
+  .step-connector { flex: 1; height: 1px; background: var(--color-border-tertiary); min-width: 8px; flex-shrink: 0; }
+
+  .step-label {
+    padding: 8px 16px 12px;
+    font-family: 'IBM Plex Mono', monospace; font-size: 11px;
+    color: var(--color-text-secondary); letter-spacing: .03em;
+    border-bottom: 1px solid var(--color-border-tertiary);
+  }
+  .step-label strong { color: var(--color-text-primary); font-weight: 500; }
+
+  /* App shell */
+  .app-shell {
+    display: flex; height: 320px;
+    border-bottom: 1px solid var(--color-border-tertiary);
+    font-family: 'IBM Plex Mono', monospace;
+  }
+
+  /* Sidebar */
+  .sidebar {
+    width: 200px; flex-shrink: 0;
+    border-right: 1px solid var(--color-border-tertiary);
+    background: var(--color-background-secondary);
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  .sidebar-header {
+    padding: 12px 12px 8px;
+    font-size: 10px; font-weight: 500; letter-spacing: .08em;
+    color: var(--color-text-tertiary); text-transform: uppercase;
+  }
+  .sidebar-pages { flex: 1; overflow-y: auto; padding: 0 6px 8px; }
+  .page-item {
+    display: flex; align-items: center; gap: 7px;
+    padding: 6px 8px; border-radius: 5px; cursor: pointer;
+    font-size: 12px; color: var(--color-text-secondary);
+    transition: background .15s; white-space: nowrap; overflow: hidden;
+  }
+  .page-item.active { background: var(--color-background-primary); color: var(--color-text-primary); }
+  .page-item:hover:not(.active) { background: var(--color-background-primary); }
+  .page-icon { font-size: 13px; flex-shrink: 0; }
+  .page-title { overflow: hidden; text-overflow: ellipsis; }
+  .sidebar-new-btn {
+    margin: 6px; padding: 7px 10px; border-radius: 5px;
+    border: 1px dashed var(--color-border-secondary);
+    font-family: 'IBM Plex Mono', monospace; font-size: 11px;
+    color: var(--color-text-tertiary); cursor: pointer; background: none;
+    text-align: left; transition: all .15s;
+  }
+  .sidebar-new-btn:hover { color: var(--color-text-primary); border-color: var(--color-border-primary); }
+
+  /* Editor */
+  .editor-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; }
+  .editor-topbar {
+    padding: 10px 20px; border-bottom: 1px solid var(--color-border-tertiary);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .editor-page-title {
+    font-family: 'Lora', serif; font-size: 14px; font-weight: 600;
+    color: var(--color-text-primary);
+  }
+  .export-btn {
+    font-family: 'IBM Plex Mono', monospace; font-size: 10px;
+    padding: 4px 10px; border-radius: 4px; border: 1px solid var(--color-border-secondary);
+    color: var(--color-text-secondary); background: none; cursor: pointer;
+    transition: all .15s; letter-spacing: .04em;
+  }
+  .export-btn:hover, .export-btn.flash { background: var(--color-text-primary); color: var(--color-background-primary); border-color: var(--color-text-primary); }
+
+  .editor-scroll { flex: 1; overflow-y: auto; padding: 16px 24px; }
+
+  /* Blocks */
+  .block-row {
+    display: flex; align-items: flex-start; gap: 8px;
+    margin-bottom: 2px; position: relative;
+    animation: blockIn .2s ease;
+  }
+  @keyframes blockIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+  .block-handle {
+    width: 16px; height: 24px; flex-shrink: 0; margin-top: 1px;
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; transition: opacity .15s; cursor: grab;
+    color: var(--color-text-tertiary); font-size: 10px;
+  }
+  .block-row:hover .block-handle { opacity: 1; }
+  .block-content { flex: 1; min-height: 24px; outline: none; }
+
+  .block-p { font-family: 'Lora', serif; font-size: 13px; line-height: 1.7; color: var(--color-text-primary); }
+  .block-h1 { font-family: 'Lora', serif; font-size: 20px; font-weight: 600; line-height: 1.3; color: var(--color-text-primary); padding: 4px 0 2px; }
+  .block-h2 { font-family: 'Lora', serif; font-size: 16px; font-weight: 600; line-height: 1.4; color: var(--color-text-primary); padding: 2px 0; }
+  .block-h3 { font-family: 'Lora', serif; font-size: 14px; font-weight: 600; line-height: 1.5; color: var(--color-text-primary); }
+  .block-code {
+    font-family: 'IBM Plex Mono', monospace; font-size: 11px; line-height: 1.6;
+    background: var(--color-background-secondary); border: 1px solid var(--color-border-tertiary);
+    border-radius: 6px; padding: 8px 12px; color: var(--color-text-primary);
+    white-space: pre;
+  }
+  .block-quote {
+    font-family: 'Lora', serif; font-size: 13px; font-style: italic;
+    border-left: 2px solid var(--color-border-primary); padding-left: 12px;
+    color: var(--color-text-secondary); line-height: 1.7;
+  }
+  .block-todo { display: flex; align-items: flex-start; gap: 8px; }
+  .block-todo-check {
+    width: 14px; height: 14px; border: 1.5px solid var(--color-border-primary);
+    border-radius: 3px; flex-shrink: 0; margin-top: 4px; display: flex;
+    align-items: center; justify-content: center; font-size: 9px;
+  }
+  .block-todo-check.done { background: var(--color-text-primary); border-color: var(--color-text-primary); color: var(--color-background-primary); }
+  .block-divider { border: none; border-top: 1px solid var(--color-border-tertiary); margin: 6px 0; }
+
+  .placeholder-text { color: var(--color-text-tertiary); font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-style: italic; padding: 4px 0; }
+  .cursor-blink { display: inline-block; width: 2px; height: 14px; background: var(--color-text-primary); animation: blink 1s step-end infinite; vertical-align: middle; margin-left: 1px; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+  /* Slash menu */
+  .slash-menu {
+    position: absolute; left: 48px; z-index: 10;
+    background: var(--color-background-primary);
+    border: 1px solid var(--color-border-secondary);
+    border-radius: 8px; width: 220px;
+    box-shadow: 0 4px 16px rgba(0,0,0,.12);
+    overflow: hidden;
+    animation: menuIn .15s ease;
+  }
+  @keyframes menuIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+  .slash-menu-header {
+    padding: 8px 10px 4px; font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px; letter-spacing: .08em; color: var(--color-text-tertiary); text-transform: uppercase;
+  }
+  .slash-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 7px 10px; cursor: pointer; transition: background .1s;
+  }
+  .slash-item:hover, .slash-item.sel { background: var(--color-background-secondary); }
+  .slash-item-icon {
+    width: 26px; height: 26px; border-radius: 5px;
+    background: var(--color-background-secondary);
+    border: 1px solid var(--color-border-tertiary);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; flex-shrink: 0; font-family: 'IBM Plex Mono', monospace;
+  }
+  .slash-item-info { flex: 1; }
+  .slash-item-name { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--color-text-primary); }
+  .slash-item-desc { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--color-text-tertiary); margin-top: 1px; }
+  .slash-ai-item { background: var(--color-background-secondary); }
+  .slash-ai-badge {
+    font-family: 'IBM Plex Mono', monospace; font-size: 9px;
+    padding: 1px 5px; border-radius: 3px;
+    background: var(--color-text-primary); color: var(--color-background-primary);
+  }
+
+  /* AI prompt box */
+  .ai-prompt-box {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 12px; margin: 4px 0;
+    border: 1px solid var(--color-border-primary);
+    border-radius: 8px; background: var(--color-background-secondary);
+    animation: blockIn .2s ease;
+  }
+  .ai-prompt-input {
+    flex: 1; font-family: 'IBM Plex Mono', monospace; font-size: 12px;
+    color: var(--color-text-primary); background: none; border: none; outline: none;
+  }
+  .ai-badge { font-family: 'IBM Plex Mono', monospace; font-size: 9px; padding: 2px 6px; border-radius: 3px; background: var(--color-text-primary); color: var(--color-background-primary); flex-shrink: 0; }
+
+  /* AI loading */
+  .ai-skeleton {
+    border-radius: 4px; background: var(--color-background-secondary);
+    border: 1px solid var(--color-border-tertiary);
+    margin-bottom: 4px;
+    position: relative; overflow: hidden;
+  }
+  .ai-skeleton::after {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(90deg, transparent 0%, var(--color-background-primary) 50%, transparent 100%);
+    animation: shimmer 1.2s infinite;
+  }
+  @keyframes shimmer { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
+
+  /* Export preview */
+  .export-preview {
+    position: absolute; inset: 0; background: var(--color-background-primary);
+    z-index: 20; padding: 16px 20px; overflow-y: auto;
+    animation: blockIn .2s ease;
+  }
+  .export-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .export-title { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--color-text-tertiary); letter-spacing: .06em; }
+  .close-export { font-family: 'IBM Plex Mono', monospace; font-size: 10px; padding: 3px 8px; border-radius: 4px; border: 1px solid var(--color-border-secondary); color: var(--color-text-secondary); background: none; cursor: pointer; }
+  .export-code { font-family: 'IBM Plex Mono', monospace; font-size: 11px; line-height: 1.7; color: var(--color-text-primary); white-space: pre-wrap; }
+
+  /* Nav */
+  .nav-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 16px;
+  }
+  .nav-btn {
+    font-family: 'IBM Plex Mono', monospace; font-size: 11px;
+    padding: 6px 14px; border-radius: 5px; border: 1px solid var(--color-border-secondary);
+    color: var(--color-text-secondary); background: none; cursor: pointer;
+    transition: all .15s;
+  }
+  .nav-btn:hover { color: var(--color-text-primary); border-color: var(--color-border-primary); }
+  .nav-btn.primary { background: var(--color-text-primary); color: var(--color-background-primary); border-color: var(--color-text-primary); }
+  .nav-btn.primary:hover { opacity: .85; }
+  .nav-desc { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--color-text-tertiary); text-align: center; max-width: 360px; line-height: 1.5; }
+</style>
+
+<div class="tour-wrap">
+  <div class="step-bar" id="stepBar"></div>
+  <div class="step-label" id="stepLabel"></div>
+
+  <div class="app-shell">
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <div class="sidebar-header">Pages</div>
+      <div class="sidebar-pages" id="sidebarPages"></div>
+      <button class="sidebar-new-btn" onclick="handleNewPage()">+ New page</button>
+    </div>
+    <!-- Editor -->
+    <div class="editor-area">
+      <div class="editor-topbar">
+        <div class="editor-page-title" id="editorTitle">Untitled</div>
+        <button class="export-btn" id="exportBtn" onclick="handleExport()">Export .md</button>
+      </div>
+      <div class="editor-scroll" id="editorScroll">
+        <div id="blockContainer"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="nav-row">
+    <button class="nav-btn" id="prevBtn" onclick="prev()">← Back</button>
+    <div class="nav-desc" id="navDesc"></div>
+    <button class="nav-btn primary" id="nextBtn" onclick="next()">Next →</button>
+  </div>
+</div>
+
+<script>
+const pages = [
+  { id: '1', icon: '📋', title: 'Project Plan', active: true },
+  { id: '2', icon: '📝', title: 'Meeting Notes', active: false },
+  { id: '3', icon: '💡', title: 'Ideas', active: false },
+];
+
+const steps = [
+  {
+    label: 'Step 01 — <strong>App opens</strong>',
+    desc: 'The app has a sidebar listing your pages on the left, and the editor on the right. One default page is ready to go.',
+    render: renderStep0
+  },
+  {
+    label: 'Step 02 — <strong>Creating a new page</strong>',
+    desc: 'Click "+ New page" in the sidebar. A new untitled page appears and becomes the active page in the editor.',
+    render: renderStep1
+  },
+  {
+    label: 'Step 03 — <strong>Empty editor state</strong>',
+    desc: 'The editor shows a title area at the top and one empty block below with a placeholder hint. The cursor sits in the first block.',
+    render: renderStep2
+  },
+  {
+    label: 'Step 04 — <strong>Typing text → paragraph block</strong>',
+    desc: 'The user starts typing. The text goes into the first block, which is a paragraph by default. No button press needed.',
+    render: renderStep3
+  },
+  {
+    label: 'Step 05 — <strong>Pressing Enter → new block</strong>',
+    desc: 'Pressing Enter creates a new empty block below. The cursor moves into it automatically. Backspace on an empty block deletes it.',
+    render: renderStep4
+  },
+  {
+    label: 'Step 06 — <strong>Typing "/" opens the slash menu</strong>',
+    desc: 'Typing "/" in any block opens a floating menu listing all block types. Arrow keys navigate it, Enter or click selects.',
+    render: renderStep5
+  },
+  {
+    label: 'Step 07 — <strong>Selecting a block type</strong>',
+    desc: 'Picking "Heading 1" transforms the current block into a heading. The same block, different type. The slash menu closes.',
+    render: renderStep6
+  },
+  {
+    label: 'Step 08 — <strong>Typing "/ai" → AI prompt box</strong>',
+    desc: 'Typing "/ai" inserts a special AI input block. The user types their prompt and presses Enter to send it to Claude.',
+    render: renderStep7
+  },
+  {
+    label: 'Step 09 — <strong>AI generates blocks</strong>',
+    desc: 'Claude returns a JSON array of blocks. A skeleton loader shows while waiting, then the blocks animate in — indistinguishable from manually typed blocks.',
+    render: renderStep8
+  },
+  {
+    label: 'Step 10 — <strong>Full page built, ready to export</strong>',
+    desc: 'The page now has a mix of manually written and AI-generated blocks. Clicking "Export .md" converts every block to Markdown and downloads the file.',
+    render: renderStep9
+  },
+];
+
+let current = 0;
+
+function renderSidebar(activePage = '1', newPageVisible = false) {
+  const container = document.getElementById('sidebarPages');
+  let html = '';
+  pages.forEach(p => {
+    html += `<div class="page-item ${p.id === activePage ? 'active' : ''}">
+      <span class="page-icon">${p.icon}</span>
+      <span class="page-title">${p.title}</span>
+    </div>`;
+  });
+  if (newPageVisible) {
+    html += `<div class="page-item active">
+      <span class="page-icon">📄</span>
+      <span class="page-title">Untitled<span class="cursor-blink"></span></span>
+    </div>`;
+  }
+  container.innerHTML = html;
+}
+
+function setTitle(t) { document.getElementById('editorTitle').textContent = t; }
+
+function block(cls, content, extraClass='') {
+  return `<div class="block-row ${extraClass}">
+    <div class="block-handle">⠿</div>
+    <div class="block-content ${cls}">${content}</div>
+  </div>`;
+}
+
+function renderStep0() {
+  renderSidebar('1');
+  setTitle('Project Plan');
+  document.getElementById('blockContainer').innerHTML =
+    block('block-h1', 'Project Plan') +
+    block('block-p', 'This document outlines the scope and timeline for Q3.') +
+    block('block-p', 'Add your notes here...');
+}
+
+function renderStep1() {
+  renderSidebar('1', true);
+  setTitle('Untitled');
+  document.getElementById('blockContainer').innerHTML =
+    `<div class="placeholder-text">Give your page a title…</div>`;
+}
+
+function renderStep2() {
+  renderSidebar('1', true);
+  setTitle('My Notes');
+  document.getElementById('blockContainer').innerHTML =
+    `<div class="block-row">
+      <div class="block-handle">⠿</div>
+      <div class="block-content placeholder-text">Type '/' for commands, or just start writing…<span class="cursor-blink"></span></div>
+    </div>`;
+}
+
+function renderStep3() {
+  renderSidebar('1', true);
+  setTitle('My Notes');
+  document.getElementById('blockContainer').innerHTML =
+    block('block-p', 'The goal of this project is to build a block-based note editor<span class="cursor-blink"></span>');
+}
+
+function renderStep4() {
+  renderSidebar('1', true);
+  setTitle('My Notes');
+  document.getElementById('blockContainer').innerHTML =
+    block('block-p', 'The goal of this project is to build a block-based note editor') +
+    block('block-p', 'It should support multiple block types including headings, code, and todos') +
+    `<div class="block-row">
+      <div class="block-handle">⠿</div>
+      <div class="block-content placeholder-text">Type '/' for commands…<span class="cursor-blink"></span></div>
+    </div>`;
+}
+
+function renderStep5() {
+  renderSidebar('1', true);
+  setTitle('My Notes');
+  const slashMenu = `<div class="slash-menu" style="top: 104px;">
+    <div class="slash-menu-header">Block types</div>
+    <div class="slash-item sel">
+      <div class="slash-item-icon">T</div>
+      <div class="slash-item-info"><div class="slash-item-name">Heading 1</div><div class="slash-item-desc">Large section title</div></div>
+    </div>
+    <div class="slash-item">
+      <div class="slash-item-icon">T·</div>
+      <div class="slash-item-info"><div class="slash-item-name">Heading 2</div><div class="slash-item-desc">Medium section title</div></div>
+    </div>
+    <div class="slash-item">
+      <div class="slash-item-icon">&lt;/&gt;</div>
+      <div class="slash-item-info"><div class="slash-item-name">Code</div><div class="slash-item-desc">Code block with syntax</div></div>
+    </div>
+    <div class="slash-item">
+      <div class="slash-item-icon">☑</div>
+      <div class="slash-item-info"><div class="slash-item-name">Todo</div><div class="slash-item-desc">Checkable task item</div></div>
+    </div>
+    <div class="slash-item slash-ai-item">
+      <div class="slash-item-icon">✦</div>
+      <div class="slash-item-info">
+        <div class="slash-item-name">AI generate <span class="slash-ai-badge">AI</span></div>
+        <div class="slash-item-desc">Describe what to create</div>
+      </div>
+    </div>
+  </div>`;
+
+  document.getElementById('blockContainer').innerHTML =
+    block('block-p', 'The goal of this project is to build a block-based note editor') +
+    block('block-p', 'It should support multiple block types including headings, code, and todos') +
+    `<div class="block-row" style="position:relative">
+      <div class="block-handle">⠿</div>
+      <div class="block-content block-p">/<span class="cursor-blink"></span></div>
+      ${slashMenu}
+    </div>`;
+}
+
+function renderStep6() {
+  renderSidebar('1', true);
+  setTitle('My Notes');
+  document.getElementById('blockContainer').innerHTML =
+    block('block-p', 'The goal of this project is to build a block-based note editor') +
+    block('block-p', 'It should support multiple block types including headings, code, and todos') +
+    block('block-h1', 'Features<span class="cursor-blink"></span>');
+}
+
+function renderStep7() {
+  renderSidebar('1', true);
+  setTitle('My Notes');
+  document.getElementById('blockContainer').innerHTML =
+    block('block-p', 'The goal of this project is to build a block-based note editor') +
+    block('block-h1', 'Features') +
+    `<div class="ai-prompt-box">
+      <span class="ai-badge">AI</span>
+      <span class="ai-prompt-input">list 3 core features of a block editor with descriptions<span class="cursor-blink"></span></span>
+    </div>`;
+}
+
+function renderStep8() {
+  renderSidebar('1', true);
+  setTitle('My Notes');
+  document.getElementById('blockContainer').innerHTML =
+    block('block-p', 'The goal of this project is to build a block-based note editor') +
+    block('block-h1', 'Features') +
+    `<div class="ai-skeleton" style="height:18px;width:55%;margin-bottom:6px;margin-left:24px;"></div>
+     <div class="ai-skeleton" style="height:14px;width:80%;margin-bottom:6px;margin-left:24px;"></div>
+     <div class="ai-skeleton" style="height:14px;width:68%;margin-bottom:10px;margin-left:24px;"></div>
+     <div class="ai-skeleton" style="height:18px;width:45%;margin-bottom:6px;margin-left:24px;"></div>
+     <div class="ai-skeleton" style="height:14px;width:75%;margin-left:24px;"></div>`;
+  setTimeout(() => {
+    if (current === 8) {
+      document.getElementById('blockContainer').innerHTML =
+        block('block-p', 'The goal of this project is to build a block-based note editor') +
+        block('block-h1', 'Features') +
+        block('block-h2', 'Block-based editing') +
+        block('block-p', 'Every piece of content is a discrete block with a type, content, and optional properties. Blocks can be added, moved, and deleted independently.') +
+        block('block-h2', 'Slash commands') +
+        block('block-p', 'Typing "/" opens a command palette to insert any block type without leaving the keyboard.');
+    }
+  }, 1500);
+}
+
+function renderStep9() {
+  renderSidebar('1', true);
+  setTitle('My Notes');
+  document.getElementById('blockContainer').innerHTML =
+    block('block-p', 'The goal of this project is to build a block-based note editor') +
+    block('block-h1', 'Features') +
+    block('block-h2', 'Block-based editing') +
+    block('block-p', 'Every piece of content is a discrete block with a type and content.') +
+    block('block-h2', 'Slash commands') +
+    block('block-p', 'Typing "/" opens a command palette to insert any block type.') +
+    block('block-todo', '<div class="block-todo"><div class="block-todo-check done">✓</div><span>Build the block engine</span></div>') +
+    block('block-todo', '<div class="block-todo"><div class="block-todo-check"></div><span>Add AI slash command</span></div>');
+  document.getElementById('exportBtn').classList.add('flash');
+  setTimeout(() => document.getElementById('exportBtn').classList.remove('flash'), 1200);
+}
+
+function handleExport() {
+  if (current !== 9) return;
+  const md = `# My Notes\n\nThe goal of this project is to build a block-based note editor\n\n# Features\n\n## Block-based editing\n\nEvery piece of content is a discrete block with a type and content.\n\n## Slash commands\n\nTyping "/" opens a command palette to insert any block type.\n\n- [x] Build the block engine\n- [ ] Add AI slash command`;
+  const preview = document.createElement('div');
+  preview.className = 'export-preview';
+  preview.innerHTML = `<div class="export-header"><span class="export-title">EXPORT PREVIEW — my-notes.md</span><button class="close-export" onclick="this.parentElement.parentElement.remove()">✕ Close</button></div><div class="export-code">${md}</div>`;
+  document.querySelector('.editor-area').style.position = 'relative';
+  document.querySelector('.editor-area').appendChild(preview);
+}
+
+function handleNewPage() {
+  if (current < 1) { next(); }
+}
+
+function renderStepBar() {
+  const bar = document.getElementById('stepBar');
+  bar.innerHTML = steps.map((s, i) =>
+    `<div class="step-dot ${i === current ? 'active' : i < current ? 'done' : ''}" onclick="goTo(${i})">${i+1}</div>
+     ${i < steps.length - 1 ? '<div class="step-connector"></div>' : ''}`
+  ).join('');
+}
+
+function renderStepLabel() {
+  document.getElementById('stepLabel').innerHTML = steps[current].label;
+  document.getElementById('navDesc').textContent = steps[current].desc;
+}
+
+function goTo(i) {
+  current = i;
+  renderStepBar();
+  renderStepLabel();
+  steps[current].render();
+  document.getElementById('prevBtn').style.visibility = current === 0 ? 'hidden' : 'visible';
+  document.getElementById('nextBtn').textContent = current === steps.length - 1 ? 'Done ✓' : 'Next →';
+}
+
+function next() { if (current < steps.length - 1) goTo(current + 1); }
+function prev() { if (current > 0) goTo(current - 1); }
+
+goTo(0);
+</script>

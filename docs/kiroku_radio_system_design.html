@@ -1,0 +1,536 @@
+
+<style>
+  * { box-sizing: border-box; }
+
+  .radio-wrap { font-family: var(--font-sans); padding: 0; }
+
+  .radio-nav {
+    display: flex; gap: 4px; padding: 12px 16px;
+    border-bottom: 1px solid var(--color-border-tertiary);
+    overflow-x: auto; scrollbar-width: none;
+  }
+  .radio-nav::-webkit-scrollbar { display: none; }
+
+  .radio-tab {
+    display: flex; align-items: center; gap: 7px;
+    padding: 7px 13px; border-radius: 6px;
+    border: 1px solid transparent;
+    font-size: 12px; font-weight: 500; cursor: pointer;
+    color: var(--color-text-secondary); background: none;
+    transition: all .15s; white-space: nowrap; flex-shrink: 0;
+  }
+  .radio-tab:hover { background: var(--color-background-secondary); color: var(--color-text-primary); }
+  .radio-tab.active { background: var(--color-text-primary); color: var(--color-background-primary); border-color: var(--color-text-primary); }
+
+  .radio-letter { font-size: 11px; font-weight: 700; opacity: .7; }
+  .radio-tab.active .radio-letter { opacity: 1; }
+
+  .panel { display: none; padding: 20px; }
+  .panel.active { display: block; }
+
+  .panel-title {
+    font-size: 18px; font-weight: 500; color: var(--color-text-primary);
+    margin: 0 0 4px;
+  }
+  .panel-subtitle {
+    font-size: 13px; color: var(--color-text-secondary);
+    margin: 0 0 20px; line-height: 1.5;
+  }
+
+  .section-head {
+    font-size: 11px; font-weight: 600; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--color-text-tertiary);
+    margin: 20px 0 10px;
+  }
+  .section-head:first-child { margin-top: 0; }
+
+  .req-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+  .req-card {
+    border: 1px solid var(--color-border-tertiary);
+    border-radius: 8px; padding: 12px 14px;
+    background: var(--color-background-secondary);
+  }
+  .req-card-title { font-size: 13px; font-weight: 500; color: var(--color-text-primary); margin-bottom: 6px; }
+  .req-item {
+    display: flex; align-items: flex-start; gap: 8px;
+    font-size: 12px; color: var(--color-text-secondary);
+    line-height: 1.5; margin-bottom: 4px;
+  }
+  .req-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--color-text-tertiary); margin-top: 5px; flex-shrink: 0; }
+  .req-dot.yes { background: #1D9E75; }
+  .req-dot.no { background: #E24B4A; }
+  .req-dot.warn { background: #EF9F27; }
+
+  .scope-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 8px; }
+  .scope-table th {
+    text-align: left; padding: 7px 10px;
+    font-size: 10px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase;
+    color: var(--color-text-tertiary);
+    border-bottom: 1px solid var(--color-border-tertiary);
+  }
+  .scope-table td {
+    padding: 8px 10px; border-bottom: 1px solid var(--color-border-tertiary);
+    color: var(--color-text-secondary); vertical-align: top; line-height: 1.5;
+  }
+  .scope-table td:first-child { color: var(--color-text-primary); font-weight: 500; width: 36%; }
+  .badge {
+    display: inline-block; font-size: 10px; font-weight: 600;
+    padding: 2px 7px; border-radius: 10px; letter-spacing: .04em;
+  }
+  .badge-in { background: #E1F5EE; color: #0F6E56; }
+  .badge-out { background: #FCEBEB; color: #A32D2D; }
+
+  .arch-layer {
+    border: 1px solid var(--color-border-tertiary); border-radius: 8px;
+    margin-bottom: 8px; overflow: hidden;
+  }
+  .arch-header {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 14px; cursor: pointer;
+    background: var(--color-background-secondary);
+    transition: background .15s;
+  }
+  .arch-header:hover { background: var(--color-background-tertiary); }
+  .arch-layer-num {
+    width: 22px; height: 22px; border-radius: 4px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700; flex-shrink: 0;
+  }
+  .arch-layer-title { font-size: 13px; font-weight: 500; color: var(--color-text-primary); flex: 1; }
+  .arch-layer-sub { font-size: 11px; color: var(--color-text-tertiary); }
+  .arch-chevron { font-size: 10px; color: var(--color-text-tertiary); transition: transform .2s; }
+  .arch-layer.open .arch-chevron { transform: rotate(90deg); }
+  .arch-body { display: none; padding: 12px 14px; border-top: 1px solid var(--color-border-tertiary); }
+  .arch-layer.open .arch-body { display: block; }
+  .arch-body-row {
+    display: flex; gap: 8px; margin-bottom: 6px; align-items: flex-start;
+  }
+  .arch-file {
+    font-family: var(--font-mono); font-size: 11px;
+    background: var(--color-background-secondary);
+    border: 1px solid var(--color-border-tertiary);
+    border-radius: 4px; padding: 2px 7px; color: var(--color-text-secondary);
+    white-space: nowrap;
+  }
+  .arch-desc { font-size: 12px; color: var(--color-text-secondary); line-height: 1.5; }
+
+  .data-entity {
+    border: 1px solid var(--color-border-tertiary); border-radius: 8px;
+    margin-bottom: 10px; overflow: hidden;
+  }
+  .data-entity-head {
+    padding: 10px 14px; background: var(--color-background-secondary);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .data-entity-name { font-size: 13px; font-weight: 500; color: var(--color-text-primary); font-family: var(--font-mono); }
+  .data-entity-note { font-size: 11px; color: var(--color-text-tertiary); }
+  .data-fields { padding: 0; }
+  .data-field {
+    display: grid; grid-template-columns: 140px 90px 1fr;
+    gap: 8px; padding: 7px 14px;
+    border-top: 1px solid var(--color-border-tertiary);
+    align-items: center;
+  }
+  .field-name { font-family: var(--font-mono); font-size: 11px; color: var(--color-text-primary); }
+  .field-type { font-family: var(--font-mono); font-size: 11px; color: #185FA5; }
+  .field-note { font-size: 11px; color: var(--color-text-tertiary); }
+
+  .iface-row {
+    border: 1px solid var(--color-border-tertiary); border-radius: 8px;
+    margin-bottom: 8px; padding: 12px 14px;
+  }
+  .iface-name { font-family: var(--font-mono); font-size: 12px; color: var(--color-text-primary); font-weight: 500; margin-bottom: 4px; }
+  .iface-sig { font-family: var(--font-mono); font-size: 11px; color: var(--color-text-secondary); background: var(--color-background-secondary); border-radius: 4px; padding: 6px 10px; margin: 6px 0; line-height: 1.6; }
+  .iface-desc { font-size: 12px; color: var(--color-text-tertiary); line-height: 1.5; }
+
+  .opt-row {
+    display: flex; gap: 12px; margin-bottom: 10px; align-items: flex-start;
+  }
+  .opt-tag {
+    font-size: 10px; font-weight: 600; padding: 3px 8px;
+    border-radius: 4px; white-space: nowrap; flex-shrink: 0;
+    letter-spacing: .04em; margin-top: 1px;
+  }
+  .opt-perf { background: #E1F5EE; color: #0F6E56; }
+  .opt-ux { background: #E6F1FB; color: #185FA5; }
+  .opt-edge { background: #FAEEDA; color: #854F0B; }
+  .opt-err { background: #FCEBEB; color: #A32D2D; }
+  .opt-content { flex: 1; }
+  .opt-title { font-size: 13px; font-weight: 500; color: var(--color-text-primary); margin-bottom: 3px; }
+  .opt-desc { font-size: 12px; color: var(--color-text-secondary); line-height: 1.5; }
+</style>
+
+<div class="radio-wrap">
+  <nav class="radio-nav">
+    <button class="radio-tab active" onclick="show('R')"><span class="radio-letter">R</span> Requirements</button>
+    <button class="radio-tab" onclick="show('A')"><span class="radio-letter">A</span> Architecture</button>
+    <button class="radio-tab" onclick="show('D')"><span class="radio-letter">D</span> Data model</button>
+    <button class="radio-tab" onclick="show('I')"><span class="radio-letter">I</span> Interfaces</button>
+    <button class="radio-tab" onclick="show('O')"><span class="radio-letter">O</span> Optimizations</button>
+  </nav>
+
+  <!-- R: Requirements -->
+  <div class="panel active" id="panel-R">
+    <p class="panel-title">Requirements</p>
+    <p class="panel-subtitle">Before any architecture decision, we lock down what Kiroku must do (functional), what qualities it must have (non-functional), and what it explicitly will not do (out of scope).</p>
+
+    <div class="section-head">Functional requirements</div>
+    <div class="req-grid">
+      <div class="req-card">
+        <div class="req-card-title">Page management</div>
+        <div class="req-item"><span class="req-dot yes"></span>Create, rename, delete pages</div>
+        <div class="req-item"><span class="req-dot yes"></span>Switch between pages via sidebar</div>
+        <div class="req-item"><span class="req-dot yes"></span>Persist pages across browser sessions</div>
+        <div class="req-item"><span class="req-dot yes"></span>Set an emoji icon per page</div>
+      </div>
+      <div class="req-card">
+        <div class="req-card-title">Block editing</div>
+        <div class="req-item"><span class="req-dot yes"></span>Type to create paragraph blocks</div>
+        <div class="req-item"><span class="req-dot yes"></span>Enter = new block, Backspace = delete empty</div>
+        <div class="req-item"><span class="req-dot yes"></span>/ command to change block type</div>
+        <div class="req-item"><span class="req-dot yes"></span>Drag handles to reorder blocks</div>
+      </div>
+      <div class="req-card">
+        <div class="req-card-title">Block types (v1)</div>
+        <div class="req-item"><span class="req-dot yes"></span>Paragraph, Heading 1/2/3</div>
+        <div class="req-item"><span class="req-dot yes"></span>Code block (with language label)</div>
+        <div class="req-item"><span class="req-dot yes"></span>Quote, Divider</div>
+        <div class="req-item"><span class="req-dot yes"></span>Todo (checkbox)</div>
+      </div>
+      <div class="req-card">
+        <div class="req-card-title">AI generation</div>
+        <div class="req-item"><span class="req-dot yes"></span>/ai command opens prompt input</div>
+        <div class="req-item"><span class="req-dot yes"></span>Claude API generates block JSON</div>
+        <div class="req-item"><span class="req-dot yes"></span>Skeleton loader while waiting</div>
+        <div class="req-item"><span class="req-dot yes"></span>Generated blocks inserted inline</div>
+      </div>
+      <div class="req-card">
+        <div class="req-card-title">Export</div>
+        <div class="req-item"><span class="req-dot yes"></span>Export page as .md file download</div>
+        <div class="req-item"><span class="req-dot yes"></span>Blocks converted to correct Markdown</div>
+        <div class="req-item"><span class="req-dot warn"></span>Copy to clipboard (nice to have)</div>
+      </div>
+      <div class="req-card">
+        <div class="req-card-title">UX behaviour</div>
+        <div class="req-item"><span class="req-dot yes"></span>Auto-save on every block change</div>
+        <div class="req-item"><span class="req-dot yes"></span>Keyboard-first navigation</div>
+        <div class="req-item"><span class="req-dot yes"></span>Empty state on new page</div>
+        <div class="req-item"><span class="req-dot warn"></span>Undo/redo (nice to have)</div>
+      </div>
+    </div>
+
+    <div class="section-head">Non-functional requirements</div>
+    <div class="req-card" style="margin-bottom:16px">
+      <div class="req-item"><span class="req-dot yes"></span><strong style="color:var(--color-text-primary);font-weight:500">Local-first</strong> — all data lives in the browser (IndexedDB). No server, no account, no internet required after first load.</div>
+      <div class="req-item"><span class="req-dot yes"></span><strong style="color:var(--color-text-primary);font-weight:500">Performance</strong> — block edits must feel instant (&lt;16ms). AI skeleton shown within 100ms of submitting prompt.</div>
+      <div class="req-item"><span class="req-dot yes"></span><strong style="color:var(--color-text-primary);font-weight:500">Type safety</strong> — full TypeScript coverage. Block schema is the single source of truth across the whole codebase.</div>
+      <div class="req-item"><span class="req-dot yes"></span><strong style="color:var(--color-text-primary);font-weight:500">Resilience</strong> — a failed AI call never corrupts editor state. Errors shown inline, editor stays usable.</div>
+      <div class="req-item"><span class="req-dot yes"></span><strong style="color:var(--color-text-primary);font-weight:500">Accessibility</strong> — keyboard navigation throughout. Slash menu navigable with arrow keys + Enter.</div>
+    </div>
+
+    <div class="section-head">Scope boundary</div>
+    <table class="scope-table">
+      <tr><th>Feature</th><th>Status</th><th>Reason</th></tr>
+      <tr><td>Multiple pages + sidebar</td><td><span class="badge badge-in">In scope</span></td><td>Transforms it from a tool into a product</td></tr>
+      <tr><td>Block reordering (drag)</td><td><span class="badge badge-in">In scope</span></td><td>Core editing UX, achievable with dnd-kit</td></tr>
+      <tr><td>Export to Markdown</td><td><span class="badge badge-in">In scope</span></td><td>Practical, shows the block model's value</td></tr>
+      <tr><td>User auth / accounts</td><td><span class="badge badge-out">Out of scope</span></td><td>Adds backend complexity, zero design value here</td></tr>
+      <tr><td>Real-time collaboration</td><td><span class="badge badge-out">Out of scope</span></td><td>Needs CRDTs + WebSockets — a separate project</td></tr>
+      <tr><td>Image / file uploads</td><td><span class="badge badge-out">Out of scope</span></td><td>Needs cloud storage, distracts from block engine</td></tr>
+      <tr><td>Nested pages</td><td><span class="badge badge-out">Out of scope</span></td><td>Adds recursive complexity, not needed for v1</td></tr>
+      <tr><td>Mobile layout</td><td><span class="badge badge-out">Out of scope</span></td><td>Desktop first, mobile is a v2 polish pass</td></tr>
+    </table>
+  </div>
+
+  <!-- A: Architecture -->
+  <div class="panel" id="panel-A">
+    <p class="panel-title">Architecture</p>
+    <p class="panel-subtitle">Kiroku is a single-page React app with no backend. The architecture is 5 layers. Click each layer to see its files and responsibilities.</p>
+
+    <div class="arch-layer open" id="layer-ui">
+      <div class="arch-header" onclick="toggleLayer('layer-ui')">
+        <div class="arch-layer-num" style="background:#E1F5EE;color:#0F6E56">1</div>
+        <span class="arch-layer-title">UI layer — React components</span>
+        <span class="arch-layer-sub">What the user sees and interacts with</span>
+        <span class="arch-chevron">▶</span>
+      </div>
+      <div class="arch-body">
+        <div class="arch-body-row"><span class="arch-file">Sidebar.tsx</span><span class="arch-desc">Page list, new page button. Reads pagesSlice, dispatches createPage / setActivePage.</span></div>
+        <div class="arch-body-row"><span class="arch-file">EditorCanvas.tsx</span><span class="arch-desc">The main writing surface. Contains BlockList and SlashMenu, handles keydown events.</span></div>
+        <div class="arch-body-row"><span class="arch-file">Block.tsx</span><span class="arch-desc">Switch component — reads block.type, renders the correct block component. The block registry lives here.</span></div>
+        <div class="arch-body-row"><span class="arch-file">SlashMenu.tsx</span><span class="arch-desc">Floating command palette. Opens on "/", filters on subsequent keys, closes on Escape or selection.</span></div>
+        <div class="arch-body-row"><span class="arch-file">blocks/</span><span class="arch-desc">One file per block type: ParagraphBlock, HeadingBlock, CodeBlock, TodoBlock, QuoteBlock, DividerBlock.</span></div>
+      </div>
+    </div>
+
+    <div class="arch-layer" id="layer-state">
+      <div class="arch-header" onclick="toggleLayer('layer-state')">
+        <div class="arch-layer-num" style="background:#EEEDFE;color:#534AB7">2</div>
+        <span class="arch-layer-title">State layer — Redux Toolkit</span>
+        <span class="arch-layer-sub">In-memory truth while the app is running</span>
+        <span class="arch-chevron">▶</span>
+      </div>
+      <div class="arch-body">
+        <div class="arch-body-row"><span class="arch-file">pagesSlice.ts</span><span class="arch-desc">Owns the pages array and activePageId. Actions: createPage, deletePage, renamePage, setActivePage, setPageIcon.</span></div>
+        <div class="arch-body-row"><span class="arch-file">editorSlice.ts</span><span class="arch-desc">Owns blocks for the active page. Actions: addBlock, updateBlock, deleteBlock, moveBlock, insertAIBlocks.</span></div>
+        <div class="arch-body-row"><span class="arch-file">uiSlice.ts</span><span class="arch-desc">Owns transient UI state: slashMenuOpen, slashMenuPosition, aiLoading, sidebarCollapsed. Never persisted.</span></div>
+        <div class="arch-body-row"><span class="arch-file">store/index.ts</span><span class="arch-desc">Configures the store, wires the StorageMiddleware that auto-saves pagesSlice and editorSlice to IndexedDB on every action.</span></div>
+      </div>
+    </div>
+
+    <div class="arch-layer" id="layer-logic">
+      <div class="arch-header" onclick="toggleLayer('layer-logic')">
+        <div class="arch-layer-num" style="background:#FAEEDA;color:#854F0B">3</div>
+        <span class="arch-layer-title">Logic layer — pure services</span>
+        <span class="arch-layer-sub">Business logic with no React or Redux dependency</span>
+        <span class="arch-chevron">▶</span>
+      </div>
+      <div class="arch-body">
+        <div class="arch-body-row"><span class="arch-file">BlockEngine.ts</span><span class="arch-desc">createBlock(type, content?) factory function. Generates nanoid, sets createdAt, returns a valid Block object.</span></div>
+        <div class="arch-body-row"><span class="arch-file">SlashParser.ts</span><span class="arch-desc">parseSlashCommand(raw: string) — returns { type: 'block' | 'ai', value: BlockType | string }.</span></div>
+        <div class="arch-body-row"><span class="arch-file">AIService.ts</span><span class="arch-desc">generateBlocks(prompt: string): Promise&lt;Block[]&gt; — calls Claude API with block schema in system prompt, parses and validates the JSON response.</span></div>
+        <div class="arch-body-row"><span class="arch-file">ExportService.ts</span><span class="arch-desc">exportToMarkdown(blocks: Block[]): string — maps each block type to its Markdown equivalent and joins the result.</span></div>
+      </div>
+    </div>
+
+    <div class="arch-layer" id="layer-storage">
+      <div class="arch-header" onclick="toggleLayer('layer-storage')">
+        <div class="arch-layer-num" style="background:#E6F1FB;color:#185FA5">4</div>
+        <span class="arch-layer-title">Storage layer — IndexedDB</span>
+        <span class="arch-layer-sub">Persisted data that survives browser refresh</span>
+        <span class="arch-chevron">▶</span>
+      </div>
+      <div class="arch-body">
+        <div class="arch-body-row"><span class="arch-file">StorageService.ts</span><span class="arch-desc">Wraps idb library. Two stores: "pages" (Page objects keyed by id) and "meta" (last active page id). Called by the Redux middleware, never directly by components.</span></div>
+        <div class="arch-body-row"><span class="arch-file">Strategy</span><span class="arch-desc">Redux middleware listens for any pagesSlice or editorSlice action → serialises the full pages array → writes to IndexedDB. On app load, StorageService.loadAll() hydrates the Redux store before first render.</span></div>
+      </div>
+    </div>
+
+    <div class="arch-layer" id="layer-ext">
+      <div class="arch-header" onclick="toggleLayer('layer-ext')">
+        <div class="arch-layer-num" style="background:#FAECE7;color:#993C1D">5</div>
+        <span class="arch-layer-title">External layer — Claude API</span>
+        <span class="arch-layer-sub">The only network call in the entire app</span>
+        <span class="arch-chevron">▶</span>
+      </div>
+      <div class="arch-body">
+        <div class="arch-body-row"><span class="arch-file">Endpoint</span><span class="arch-desc">POST https://api.anthropic.com/v1/messages — called only from AIService.ts, never from components directly.</span></div>
+        <div class="arch-body-row"><span class="arch-file">System prompt</span><span class="arch-desc">Includes the full Block TypeScript interface. Instructs Claude to return only a raw JSON array. No markdown fences, no explanation.</span></div>
+        <div class="arch-body-row"><span class="arch-file">Error handling</span><span class="arch-desc">Network errors, invalid JSON, and schema mismatches are all caught in AIService. On failure, dispatch setAIError(message) — the skeleton block is replaced with an error state, not a crash.</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- D: Data Model -->
+  <div class="panel" id="panel-D">
+    <p class="panel-title">Data model</p>
+    <p class="panel-subtitle">Two entities. A Page contains an ordered array of Blocks. Everything else in the app is derived from these two shapes.</p>
+
+    <div class="data-entity">
+      <div class="data-entity-head">
+        <span class="data-entity-name">Page</span>
+        <span class="data-entity-note">stored in IndexedDB · one per document</span>
+      </div>
+      <div class="data-fields">
+        <div class="data-field"><span class="field-name">id</span><span class="field-type">string</span><span class="field-note">nanoid() — primary key</span></div>
+        <div class="data-field"><span class="field-name">title</span><span class="field-type">string</span><span class="field-note">Editable in the page header, defaults to "Untitled"</span></div>
+        <div class="data-field"><span class="field-name">icon</span><span class="field-type">string</span><span class="field-note">Single emoji character shown in sidebar</span></div>
+        <div class="data-field"><span class="field-name">blocks</span><span class="field-type">Block[]</span><span class="field-note">Ordered array — index determines visual order</span></div>
+        <div class="data-field"><span class="field-name">createdAt</span><span class="field-type">number</span><span class="field-note">Date.now() timestamp, for sorting in sidebar</span></div>
+        <div class="data-field"><span class="field-name">updatedAt</span><span class="field-type">number</span><span class="field-note">Updated on every block change, shown as "last edited"</span></div>
+      </div>
+    </div>
+
+    <div class="data-entity">
+      <div class="data-entity-head">
+        <span class="data-entity-name">Block</span>
+        <span class="data-entity-note">lives inside Page.blocks · never stored standalone</span>
+      </div>
+      <div class="data-fields">
+        <div class="data-field"><span class="field-name">id</span><span class="field-type">string</span><span class="field-note">nanoid() — used as React key and for selection</span></div>
+        <div class="data-field"><span class="field-name">type</span><span class="field-type">BlockType</span><span class="field-note">Enum: paragraph | heading_1 | heading_2 | heading_3 | code | quote | todo | divider</span></div>
+        <div class="data-field"><span class="field-name">content</span><span class="field-type">string</span><span class="field-note">Raw text. Empty string for divider blocks.</span></div>
+        <div class="data-field"><span class="field-name">properties</span><span class="field-type">BlockProps?</span><span class="field-note">Optional metadata — see BlockProps below</span></div>
+        <div class="data-field"><span class="field-name">createdAt</span><span class="field-type">number</span><span class="field-note">Timestamp — used for debugging and future sorting</span></div>
+      </div>
+    </div>
+
+    <div class="data-entity">
+      <div class="data-entity-head">
+        <span class="data-entity-name">BlockProps</span>
+        <span class="data-entity-note">all fields optional · only set when relevant to the block type</span>
+      </div>
+      <div class="data-fields">
+        <div class="data-field"><span class="field-name">language</span><span class="field-type">string?</span><span class="field-note">Code blocks only — e.g. "typescript", "python"</span></div>
+        <div class="data-field"><span class="field-name">checked</span><span class="field-type">boolean?</span><span class="field-note">Todo blocks only — whether the checkbox is ticked</span></div>
+        <div class="data-field"><span class="field-name">aiGenerated</span><span class="field-type">boolean?</span><span class="field-note">True if block was created by Claude API — used to show AI badge</span></div>
+      </div>
+    </div>
+
+    <div class="section-head">Design decisions</div>
+    <div class="req-card">
+      <div class="req-item"><span class="req-dot yes"></span><strong style="color:var(--color-text-primary);font-weight:500">Blocks array, not a linked list.</strong> Simpler to reorder with index splicing. No pointer chasing for rendering.</div>
+      <div class="req-item"><span class="req-dot yes"></span><strong style="color:var(--color-text-primary);font-weight:500">Blocks nested inside Page, not a flat table.</strong> Kiroku is local-only. A flat table with foreign keys would add join complexity with zero benefit.</div>
+      <div class="req-item"><span class="req-dot yes"></span><strong style="color:var(--color-text-primary);font-weight:500">content is always a string.</strong> Even code blocks. Syntax highlighting is a rendering concern, not a data concern.</div>
+      <div class="req-item"><span class="req-dot yes"></span><strong style="color:var(--color-text-primary);font-weight:500">No children array on Block.</strong> Nested blocks are a v2 problem. Keeping it flat makes the renderer trivial and the AI prompt schema concise.</div>
+    </div>
+  </div>
+
+  <!-- I: Interfaces -->
+  <div class="panel" id="panel-I">
+    <p class="panel-title">Interface definitions</p>
+    <p class="panel-subtitle">The contracts between layers. If these are well-defined, each layer can be built and tested independently.</p>
+
+    <div class="section-head">BlockEngine</div>
+    <div class="iface-row">
+      <div class="iface-name">createBlock</div>
+      <div class="iface-sig">createBlock(type: BlockType, content?: string, props?: BlockProps): Block</div>
+      <div class="iface-desc">Factory function. Generates a new block with a fresh nanoid, current timestamp, and the provided type/content. This is the only way a Block should be created — never construct Block objects inline.</div>
+    </div>
+
+    <div class="section-head">SlashParser</div>
+    <div class="iface-row">
+      <div class="iface-name">parseSlashCommand</div>
+      <div class="iface-sig">parseSlashCommand(input: string): SlashResult | null
+<br>
+type SlashResult =
+<br>  | { kind: 'block';  blockType: BlockType }
+<br>  | { kind: 'ai';     prompt: string      }</div>
+      <div class="iface-desc">Returns null if input doesn't start with "/". Returns a typed result otherwise. The caller (EditorCanvas) decides what to do with the result — this function has no side effects.</div>
+    </div>
+
+    <div class="section-head">AIService</div>
+    <div class="iface-row">
+      <div class="iface-name">generateBlocks</div>
+      <div class="iface-sig">generateBlocks(prompt: string): Promise&lt;Block[]&gt;</div>
+      <div class="iface-desc">Calls the Claude API. The system prompt includes the Block TypeScript schema. Parses the response JSON, validates each item matches the Block shape, assigns fresh nanoids, and returns the array. Throws a typed KirokuAIError on failure — never returns malformed blocks.</div>
+    </div>
+
+    <div class="section-head">ExportService</div>
+    <div class="iface-row">
+      <div class="iface-name">exportToMarkdown</div>
+      <div class="iface-sig">exportToMarkdown(blocks: Block[]): string</div>
+      <div class="iface-desc">Pure function — takes a block array, returns a Markdown string. No side effects. The download trigger lives in the UI layer, not here. Mapping: paragraph → plain text, heading_1 → #, code → triple backtick fence, todo → - [ ] or - [x], quote → >, divider → ---.</div>
+    </div>
+
+    <div class="section-head">StorageService</div>
+    <div class="iface-row">
+      <div class="iface-name">loadAll / saveAll</div>
+      <div class="iface-sig">loadAll(): Promise&lt;Page[]&gt;
+<br>saveAll(pages: Page[]): Promise&lt;void&gt;
+<br>getLastActivePageId(): Promise&lt;string | null&gt;
+<br>setLastActivePageId(id: string): Promise&lt;void&gt;</div>
+      <div class="iface-desc">Thin wrapper over idb. Called only by the Redux middleware and the app bootstrap. No component should ever call StorageService directly — all persistence flows through Redux.</div>
+    </div>
+  </div>
+
+  <!-- O: Optimizations -->
+  <div class="panel" id="panel-O">
+    <p class="panel-title">Optimizations</p>
+    <p class="panel-subtitle">Problems to anticipate and solve before users hit them. Divided into performance, UX, edge cases, and error handling.</p>
+
+    <div class="section-head">Performance</div>
+    <div class="opt-row">
+      <span class="opt-tag opt-perf">PERF</span>
+      <div class="opt-content">
+        <div class="opt-title">Debounce IndexedDB writes</div>
+        <div class="opt-desc">Don't write to IndexedDB on every keypress — that's potentially 10 writes/second. Debounce the Redux middleware by 500ms. The UI stays reactive (Redux is synchronous), only the persistence is delayed.</div>
+      </div>
+    </div>
+    <div class="opt-row">
+      <span class="opt-tag opt-perf">PERF</span>
+      <div class="opt-content">
+        <div class="opt-title">React.memo on block components</div>
+        <div class="opt-desc">Wrap ParagraphBlock, HeadingBlock etc. in React.memo. When one block updates, only that block re-renders — not the entire BlockList. Critical for pages with 50+ blocks.</div>
+      </div>
+    </div>
+    <div class="opt-row">
+      <span class="opt-tag opt-perf">PERF</span>
+      <div class="opt-content">
+        <div class="opt-title">Stable block keys</div>
+        <div class="opt-desc">Always use block.id as the React key — never the array index. Index-based keys cause every block below an insertion to re-mount, destroying focus and cursor position.</div>
+      </div>
+    </div>
+
+    <div class="section-head">UX</div>
+    <div class="opt-row">
+      <span class="opt-tag opt-ux">UX</span>
+      <div class="opt-content">
+        <div class="opt-title">Cursor position preservation</div>
+        <div class="opt-desc">After inserting a new block (Enter key), move the cursor to the start of the new block immediately. After deleting a block (Backspace), move cursor to the end of the previous block's text. Use a focusedBlockId ref + useEffect to imperatively focus the right DOM node.</div>
+      </div>
+    </div>
+    <div class="opt-row">
+      <span class="opt-tag opt-ux">UX</span>
+      <div class="opt-content">
+        <div class="opt-title">Slash menu filter and positioning</div>
+        <div class="opt-desc">The slash menu must appear at the cursor, not at a fixed position. Use a hidden &lt;span&gt; inside the contenteditable to measure cursor coordinates via getBoundingClientRect(). Filter the menu items as the user types after "/" — fuzzy match on block type names.</div>
+      </div>
+    </div>
+    <div class="opt-row">
+      <span class="opt-tag opt-ux">UX</span>
+      <div class="opt-content">
+        <div class="opt-title">AI skeleton block</div>
+        <div class="opt-desc">Insert a placeholder block with type "ai_loading" immediately when the user submits the /ai prompt. This gives instant visual feedback. Replace it with the real blocks once the API resolves — or an error state if it fails.</div>
+      </div>
+    </div>
+
+    <div class="section-head">Edge cases</div>
+    <div class="opt-row">
+      <span class="opt-tag opt-edge">EDGE</span>
+      <div class="opt-content">
+        <div class="opt-title">Deleting the last page</div>
+        <div class="opt-desc">If the user deletes the only page, automatically create a new blank "Untitled" page and set it as active. The app should never be in a state with zero pages.</div>
+      </div>
+    </div>
+    <div class="opt-row">
+      <span class="opt-tag opt-edge">EDGE</span>
+      <div class="opt-content">
+        <div class="opt-title">Empty page on first load</div>
+        <div class="opt-desc">If IndexedDB has no data (first ever visit), seed the store with one default page containing a single empty paragraph block. Don't show a blank white screen.</div>
+      </div>
+    </div>
+    <div class="opt-row">
+      <span class="opt-tag opt-edge">EDGE</span>
+      <div class="opt-content">
+        <div class="opt-title">Paste handling in blocks</div>
+        <div class="opt-desc">By default, pasting into a contenteditable preserves rich HTML formatting, which breaks the block model. Intercept the paste event, extract plain text via e.clipboardData.getData('text/plain'), and insert it manually.</div>
+      </div>
+    </div>
+
+    <div class="section-head">Error handling</div>
+    <div class="opt-row">
+      <span class="opt-tag opt-err">ERROR</span>
+      <div class="opt-content">
+        <div class="opt-title">AI API failure</div>
+        <div class="opt-desc">Replace the ai_loading skeleton block with an "ai_error" block showing the error message and a retry button. Never crash the editor. The user's existing blocks are untouched.</div>
+      </div>
+    </div>
+    <div class="opt-row">
+      <span class="opt-tag opt-err">ERROR</span>
+      <div class="opt-content">
+        <div class="opt-title">Malformed AI JSON response</div>
+        <div class="opt-desc">Claude occasionally returns invalid JSON or JSON that doesn't match the Block schema. Wrap JSON.parse in try/catch. Validate each block against the schema with a type guard before dispatching. Reject the whole batch if any block is invalid.</div>
+      </div>
+    </div>
+    <div class="opt-row">
+      <span class="opt-tag opt-err">ERROR</span>
+      <div class="opt-content">
+        <div class="opt-title">IndexedDB unavailable</div>
+        <div class="opt-desc">IndexedDB can be blocked in private browsing mode on some browsers. Detect the failure in StorageService.init() and fall back gracefully — the app still works, just without persistence. Show a subtle warning banner.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function show(id) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.radio-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('panel-' + id).classList.add('active');
+  event.currentTarget.classList.add('active');
+}
+function toggleLayer(id) {
+  document.getElementById(id).classList.toggle('open');
+}
+</script>
