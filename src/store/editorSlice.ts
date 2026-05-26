@@ -1,28 +1,29 @@
 import { createSlice } from "@reduxjs/toolkit";
-import type { Block } from "../types";
+import type { PayloadAction } from "@reduxjs/toolkit";
 
 interface EditorState {
-  blocks: Block[]; // Blocks for the current active page
+  focusedBlockId: string | null;
 }
 
 const initialState: EditorState = {
-  blocks: [],
+  focusedBlockId: null,
 };
 
 const editorSlice = createSlice({
   name: "editor",
   initialState,
   reducers: {
-    // TODO: Phase 2 - Implement these
-    // addBlock(state, action) {},
-    // updateBlock(state, action) {},
-    // deleteBlock(state, action) {},
-    // moveBlock(state, action) {},
-    // insertAIBlock(state, action) {},
+    setFocusedBlockId(state, action: PayloadAction<string | null>) {
+      const newFocusedBlockId = action.payload;
+
+      state.focusedBlockId = newFocusedBlockId;
+    },
+    clearFocusedBlockId(state) {
+      state.focusedBlockId = null;
+    },
   },
 });
 
-// export const { addBlock, updateBlock, deleteBlock, moveBlock, insertAIBlock } =
-//   editorSlice.actions;
+export const { setFocusedBlockId, clearFocusedBlockId } = editorSlice.actions;
 
 export default editorSlice.reducer;
