@@ -4,12 +4,23 @@ import ParagraphBlock from "./blocks/ParagraphBlock";
 interface BlockProps {
   block: Block;
   previousBlockId: string | null;
+  isOnlyBlock: boolean;
 }
 
-export default function Block({ block, previousBlockId }: BlockProps) {
+export default function Block({
+  block,
+  previousBlockId,
+  isOnlyBlock,
+}: BlockProps) {
   switch (block.type) {
     case "paragraph":
-      return <ParagraphBlock block={block} previousBlockId={previousBlockId} />;
+      return (
+        <ParagraphBlock
+          block={block}
+          previousBlockId={previousBlockId}
+          isOnlyBlock={isOnlyBlock}
+        />
+      );
 
     case "heading_1":
     case "heading_2":
@@ -17,7 +28,13 @@ export default function Block({ block, previousBlockId }: BlockProps) {
     case "quote":
     case "todo":
     case "code":
-      return <ParagraphBlock block={block} previousBlockId={previousBlockId} />;
+      return (
+        <ParagraphBlock
+          block={block}
+          previousBlockId={previousBlockId}
+          isOnlyBlock={isOnlyBlock}
+        />
+      );
 
     case "divider":
       return <hr className="border-gray-200 my-2" />;

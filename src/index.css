@@ -1,1 +1,8 @@
 @import "tailwindcss";
+
+[data-block-id]:empty:focus::before {
+  content: attr(data-placeholder);
+  color: #9ca3af;
+  pointer-events: none;
+  cursor: text;
+}

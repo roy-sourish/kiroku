@@ -1,28 +1,26 @@
-import React, { useEffect, useRef } from "react";
-import { useAppDispatch, useAppSelector } from "../../store/hooks";
+import { useEffect, useRef, type KeyboardEvent } from "react";
+import { useAppDispatch } from "../../store/hooks";
 import type { Block } from "../../types";
-import {
-  clearFocusedBlockId,
-  setFocusedBlockId,
-} from "../../store/editorSlice";
+import { setFocusedBlockId } from "../../store/editorSlice";
 import { addBlock, deleteBlock, updateBlock } from "../../store/pageSlice";
 import { createBlock } from "../../services/BlockEngine";
+import { useBlockFocus } from "../../hooks/useBlockFocus";
 
 interface ParagraphBlockProps {
   block: Block;
   previousBlockId: string | null;
+  isOnlyBlock: boolean;
 }
 
 export default function ParagraphBlock({
   block,
   previousBlockId,
+  isOnlyBlock,
 }: ParagraphBlockProps) {
   const dispatch = useAppDispatch();
   const divRef = useRef<HTMLDivElement>(null);
 
-  const isFocused = useAppSelector(
-    (state) => state.editor.focusedBlockId === block.id,
-  );
+  useBlockFocus(block.id, divRef);
 
   // Init DOM text on mount (only once - never run again)
   useEffect(() => {
@@ -31,20 +29,14 @@ export default function ParagraphBlock({
     }
   }, []);
 
-  // Consume focus signal from Redux
-  useEffect(() => {
-    if (isFocused) {
-      divRef.current?.focus();
-      dispatch(clearFocusedBlockId());
-    }
-  }, [isFocused, dispatch]);
-
   const handleInput = () => {
-    const content = divRef.current?.innerText ?? "";
+    const raw = divRef.current?.innerText ?? "";
+    // contenteditable inserts a trainling \n when empty - normalize to ""
+    const content = raw === "\n" ? "" : raw;
     dispatch(updateBlock({ id: block.id, content }));
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+  const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       const newParagraphBlock = createBlock("paragraph");
@@ -52,7 +44,7 @@ export default function ParagraphBlock({
       dispatch(setFocusedBlockId(newParagraphBlock.id));
     }
 
-    if (e.key === "Backspace" && block.content === "") {
+    if (e.key === "Backspace" && block.content === "" && !isOnlyBlock) {
       e.preventDefault();
       dispatch(deleteBlock({ id: block.id }));
       dispatch(setFocusedBlockId(previousBlockId));
@@ -68,6 +60,7 @@ export default function ParagraphBlock({
       onKeyDown={handleKeyDown}
       className="outline-none w-full min-h-6 py-1 text-gray-900"
       data-block-id={block.id}
+      data-placeholder="Type something, or press '/' for commands..."
     />
   );
 }

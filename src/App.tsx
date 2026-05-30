@@ -1,4 +1,19 @@
+import { useEffect } from "react";
+import { useAppDispatch, useAppSelector } from "./store/hooks";
+import { createPage } from "./store/pageSlice";
+import EditorCanvas from "./components/EditorCanvas";
+
 export default function App() {
+  const dispatch = useAppDispatch();
+  const hasPage = useAppSelector((state) => state.pages.list.length > 0);
+
+  // Bootstrap: Create default page if none exists
+  useEffect(() => {
+    if (!hasPage) {
+      dispatch(createPage());
+    }
+  }, []);
+
   return (
     <div className="h-screen flex flex-col">
       {/* Header */}
@@ -19,38 +34,8 @@ export default function App() {
         </aside>
 
         {/* Editor Placeholder */}
-        <main className="flex-1 bg-white p-8 overflow-auto">
-          <div className="max-w-xl mx-auto">
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">
-              Welcome to kiroku
-            </h2>
-            <p className="text-gray-600 mb-6">
-              Block-based note editor - Foundation complete! ✅
-            </p>
-
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <h3 className="text-sm font-semibold text-blue-900 mb-2">
-                Phase 1: Foundation - Complete! 🎉
-              </h3>
-              <ul className="text-sm text-blue-800 space-y-1">
-                <li>✅ Project setup (Vite + React + TypeScript)</li>
-                <li>✅ Folder structure (layered architecture)</li>
-                <li>✅ TypeScript interfaces (Page, Block, types)</li>
-                <li>✅ Redux store (3 slices configured)</li>
-                <li>✅ StorageService (IndexedDB wrapper)</li>
-                <li>✅ App shell layout</li>
-              </ul>
-              <p className="text-sm text-blue-700 mt-3 font-medium">
-                Next: Phase 2 - Core Editing (Week 2)
-              </p>
-            </div>
-            <div className="mt-8 p-4 border border-gray-200 rounded-lg">
-              <p className="text-sm text-gray-600">
-                Editor canvas will appear here in Phase 2
-              </p>
-            </div>
-            
-          </div>
+        <main className="flex-1 overflow-hidden flex">
+          <EditorCanvas />
         </main>
       </div>
     </div>

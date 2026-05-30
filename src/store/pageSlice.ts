@@ -2,6 +2,7 @@ import { createSlice } from "@reduxjs/toolkit";
 import type { PayloadAction } from "@reduxjs/toolkit";
 import type { Block, BlockProperties, BlockType, Page } from "../types";
 import { nanoid } from "nanoid";
+import { createBlock } from "../services/BlockEngine";
 
 interface PageState {
   list: Page[]; // Array of all the pages
@@ -18,11 +19,14 @@ const pageSlice = createSlice({
   initialState,
   reducers: {
     createPage(state) {
+      // Default starter block 
+      const firstBlock = createBlock("paragraph");
+
       const newPage = {
         id: nanoid(),
         title: "Untitled",
         icon: "📄",
-        blocks: [],
+        blocks: [firstBlock],
         createdAt: Date.now(),
         updatedAt: Date.now(),
       };

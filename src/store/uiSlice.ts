@@ -19,14 +19,14 @@ const uiSlice = createSlice({
   initialState,
   reducers: {
     // TODO: Phase 3-6 Implement these
-    openSlashMenu(state, action) {},
-    closeSlashMenu(state) {},
-    setAILoading(state, action) {},
-    toggleSidebar(state) {},
+    // openSlashMenu(state, action) {},
+    // closeSlashMenu(state) {},
+    // setAILoading(state, action) {},
+    // toggleSidebar(state) {},
   },
 });
 
-export const { openSlashMenu, closeSlashMenu, setAILoading, toggleSidebar } =
-  uiSlice.actions;
+// export const { openSlashMenu, closeSlashMenu, setAILoading, toggleSidebar } =
+//   uiSlice.actions;
 
 export default uiSlice.reducer;
