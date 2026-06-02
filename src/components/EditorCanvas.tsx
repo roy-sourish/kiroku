@@ -41,7 +41,7 @@ export default function EditorCanvas() {
         {/* Page title */}
         <div className="mb-8">
           <h1 className="text-4xl font-bold text-gray-900 outline-none">
-            {activePage.title}
+            {activePage.icon}{activePage.title}
           </h1>
         </div>
 

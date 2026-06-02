@@ -19,7 +19,7 @@ const pageSlice = createSlice({
   initialState,
   reducers: {
     createPage(state) {
-      // Default starter block 
+      // Default starter block
       const firstBlock = createBlock("paragraph");
 
       const newPage = {
@@ -219,6 +219,7 @@ const pageSlice = createSlice({
   },
 });
 
+// Avoid circular imports
 type PageRootState = { pages: PageState };
 
 /**
