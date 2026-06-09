@@ -1,5 +1,5 @@
 import type { Block } from "../types";
-import ParagraphBlock from "./blocks/ParagraphBlock";
+import TextBlock from "./blocks/TextBlock";
 
 interface BlockProps {
   block: Block;
@@ -14,14 +14,6 @@ export default function Block({
 }: BlockProps) {
   switch (block.type) {
     case "paragraph":
-      return (
-        <ParagraphBlock
-          block={block}
-          previousBlockId={previousBlockId}
-          isOnlyBlock={isOnlyBlock}
-        />
-      );
-
     case "heading_1":
     case "heading_2":
     case "heading_3":
@@ -29,7 +21,7 @@ export default function Block({
     case "todo":
     case "code":
       return (
-        <ParagraphBlock
+        <TextBlock
           block={block}
           previousBlockId={previousBlockId}
           isOnlyBlock={isOnlyBlock}

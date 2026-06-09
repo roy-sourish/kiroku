@@ -3,6 +3,7 @@ import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { selectActivePageBlocks } from "../store/pageSlice";
 import Block from "./Block";
 import { setFocusedBlockId } from "../store/editorSlice";
+import SlashMenu from "./SlashMenu";
 
 export default function EditorCanvas() {
   const dispatch = useAppDispatch();
@@ -36,27 +37,31 @@ export default function EditorCanvas() {
   }
 
   return (
-    <div className="flex-1 overflow-auto">
-      <div className="max-w-2xl mx-auto px-16 py-12">
-        {/* Page title */}
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 outline-none">
-            {activePage.icon}{activePage.title}
-          </h1>
-        </div>
+    <>
+      <div className="flex-1 overflow-auto">
+        <div className="max-w-2xl mx-auto px-16 py-12">
+          {/* Page title */}
+          <div className="mb-8">
+            <h1 className="text-4xl font-bold text-gray-900 outline-none">
+              {activePage.icon}
+              {activePage.title}
+            </h1>
+          </div>
 
-        {/* Block list */}
-        <div>
-          {blocks.map((block, index) => (
-            <Block
-              key={block.id}
-              block={block}
-              previousBlockId={blocks[index - 1]?.id ?? null}
-              isOnlyBlock={blocks.length === 1}
-            />
-          ))}
+          {/* Block list */}
+          <div>
+            {blocks.map((block, index) => (
+              <Block
+                key={block.id}
+                block={block}
+                previousBlockId={blocks[index - 1]?.id ?? null}
+                isOnlyBlock={blocks.length === 1}
+              />
+            ))}
+          </div>
         </div>
       </div>
-    </div>
+      <SlashMenu />
+    </>
   );
 }

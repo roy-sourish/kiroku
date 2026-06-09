@@ -17,12 +17,10 @@ export function createBlock(
     };
   }
 
-  // Todo blocks default to unchecked if the caller didn't specify
-  const resolvedProperties: BlockProperties | undefined =
-    type === "todo" 
-    ? { checked: false, ...properties } 
-    : properties;
+  const defaults = defaultPropertiesFor(type);
 
+  const resolvedProperties: BlockProperties | undefined =
+    defaults || properties ? { ...defaults, ...properties } : undefined;
 
   return {
     id: nanoid(),
@@ -31,4 +29,17 @@ export function createBlock(
     properties: resolvedProperties,
     createdAt: Date.now(),
   };
+}
+
+export function defaultPropertiesFor(
+  type: BlockType,
+): BlockProperties | undefined {
+  switch (type) {
+    case "todo":
+      return { checked: false };
+    case "code":
+      return { language: "plaintext" };
+    default:
+      return undefined;
+  }
 }

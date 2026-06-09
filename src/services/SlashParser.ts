@@ -73,22 +73,16 @@ export const SLASH_COMMANDS: SlashCommand[] = [
 export function parseSlashInput(
   content: string,
 ): { query: string; isAIPrompt: boolean } | null {
-  const extractedQueryFromContent = content.startsWith("/");
-  if (!extractedQueryFromContent) return null;
+  // Case 1: doesn't start with / - not a slash session
+  if (!content.startsWith("/")) return null;
 
-  const indexOfSlash = content.indexOf("/");
-  const indexBeforeSlash = indexOfSlash !== -1 ? indexOfSlash - 1 : -1;
-
-  if (
-    extractedQueryFromContent &&
-    indexBeforeSlash !== -1 &&
-    content[indexBeforeSlash] != " "
-  ) {
-    return null;
+  // Case 2: starts with "/ai " - AI prompt, Phase 6 will handle this
+  if (content.startsWith("/ai ")) {
+    return { query: content.slice(4), isAIPrompt: true };
   }
 
-  const query = content.slice(1, indexOfSlash);
-  return { query, isAIPrompt: false };
+  // Case 3: everything else - strip the leading / and return the query
+  return { query: content.slice(1), isAIPrompt: false };
 }
 
 // Given a query string return matching commands
@@ -100,7 +94,7 @@ export function filterCommands(query: string): SlashCommand[] {
   const normalisedQuery = query.toLocaleLowerCase();
 
   const matchingCommands = SLASH_COMMANDS.filter((command) => {
-    if (normalisedQuery === command.label.toLocaleLowerCase()) return true;
+    if (command.label.toLowerCase().includes(normalisedQuery)) return true;
 
     return command.aliases.some((alias) => alias.includes(normalisedQuery));
   });
