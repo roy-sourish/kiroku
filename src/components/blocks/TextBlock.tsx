@@ -1,16 +1,25 @@
 import { useEffect, useRef, type KeyboardEvent } from "react";
-import { useAppDispatch, useAppSelector } from "../../store/hooks";
+
+// --- Types -------------------------------------------
 import type { Block, BlockType } from "../../types";
+
+// --- Hooks -------------------------------------------
+import { useAppDispatch, useAppSelector } from "../../store/hooks";
+import { useBlockFocus } from "../../hooks/useBlockFocus";
+import { useSlashConfirm } from "../../hooks/useSlashConfirm";
+
+// --- Redux Slice -------------------------------------
 import { setFocusedBlockId } from "../../store/editorSlice";
 import { addBlock, deleteBlock, updateBlock } from "../../store/pageSlice";
-import { createBlock } from "../../services/BlockEngine";
-import { useBlockFocus } from "../../hooks/useBlockFocus";
 import {
   clearSlashConfirmRequest,
   closeSlashMenu,
   openSlashMenu,
   setSlashSelectedIndex,
 } from "../../store/uiSlice";
+
+// --- Services -----------------------------------------
+import { createBlock } from "../../services/BlockEngine";
 import { filterCommands } from "../../services/SlashParser";
 
 const TYPE_CLASSNAMES: Partial<Record<BlockType, string>> = {
@@ -62,6 +71,7 @@ export default function TextBlock({
 
   const dispatch = useAppDispatch();
   const divRef = useRef<HTMLDivElement>(null);
+  const { handleConfirm } = useSlashConfirm(block, divRef);
 
   useBlockFocus(block.id, divRef);
 
@@ -74,18 +84,21 @@ export default function TextBlock({
 
   useEffect(() => {
     if (!slashConfirmRequest || !isMyMenu) return;
-    console.log("mouse confirm: ", slashConfirmRequest); // Later we will replace this with transform
+    handleConfirm(slashConfirmRequest);
     dispatch(clearSlashConfirmRequest());
   }, [slashConfirmRequest, isMyMenu]);
 
   const handleInput = () => {
     const raw = divRef.current?.innerText ?? "";
     // contenteditable inserts a trainling \n when empty - normalize to ""
-    const content = raw === "\n" ? "" : raw;
-    dispatch(updateBlock({ id: block.id, content }));
+    // contentEditable elements in browser silently converts trailing regualar
+    // spaces  to &nbsp; (non-breaking space, unicode \u00a0) to preserve spacing.
+    // "\u00a0" !== " " -> true  so .endsWith(" ") returns fasle
+    const normalized = raw === "\n" ? "" : raw.replace(/\u00a0/g, " ");
+    dispatch(updateBlock({ id: block.id, content: normalized }));
 
     // If the / has been deleted, close the menu
-    if (isMyMenu && content.length <= slashMenuStartIndex) {
+    if (isMyMenu && normalized.length <= slashMenuStartIndex) {
       dispatch(closeSlashMenu());
     }
   };
@@ -110,8 +123,7 @@ export default function TextBlock({
         const query = block.content.slice(slashMenuStartIndex + 1);
         const commands = filterCommands(query);
         const selected = commands[slashSelectedIndex];
-        if (selected) console.log("confirm: ", selected);
-        // Later we will replace the console log with transform logic
+        if (selected) handleConfirm(selected);
         return;
       }
 
@@ -128,6 +140,7 @@ export default function TextBlock({
     // ---- Normal block handling ------------------------------------------------
     if (e.key === "/") {
       const shouldOpen = block.content === "" || block.content.endsWith(" ");
+
       if (shouldOpen) {
         const mode = block.content === "" ? "transform" : "insert";
         const startIndex = block.content.length;
@@ -157,6 +170,10 @@ export default function TextBlock({
       ref={divRef}
       contentEditable
       suppressContentEditableWarning
+      role="combobox"
+      aria-expanded={isMyMenu}
+      aria-haspopup="listbox"
+      aria-autocomplete="list"
       onInput={handleInput}
       onKeyDown={handleKeyDown}
       className={`outline-none w-full min-h-6 py-1 ${TYPE_CLASSNAMES[block.type] ?? "text-base text-gray-900"}`}
