@@ -233,6 +233,11 @@ export const selectActivePageBlocks = (state: PageRootState): Block[] => {
   return activePage?.blocks ?? [];
 };
 
+export const selectPageIds = (state: PageRootState): string[] => {
+  const pageIds = state.pages.list.map((p) => p.id);
+  return pageIds;
+};
+
 export const {
   createPage,
   deletePage,
