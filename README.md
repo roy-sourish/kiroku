@@ -19,16 +19,16 @@ All data lives in IndexedDB. No backend, no accounts, no sync.
 
 ## Tech Stack
 
-| Concern | Library |
-|---|---|
-| UI | React 19 |
-| State | Redux Toolkit |
-| Persistence | IndexedDB via `idb` |
-| Styling | Tailwind CSS 4 |
-| Build | Vite 8 |
-| IDs | nanoid |
-| Drag & drop | @dnd-kit/core (Phase 7) |
-| AI | Anthropic SDK / Claude API (Phase 6) |
+| Concern     | Library                              |
+| ----------- | ------------------------------------ |
+| UI          | React 19                             |
+| State       | Redux Toolkit                        |
+| Persistence | IndexedDB via `idb`                  |
+| Styling     | Tailwind CSS 4                       |
+| Build       | Vite 8                               |
+| IDs         | nanoid                               |
+| Drag & drop | @dnd-kit/core (Phase 7)              |
+| AI          | Anthropic SDK / Claude API (Phase 6) |
 
 ## Getting Started
 
@@ -51,9 +51,10 @@ Kiroku uses a strict 5-layer architecture. Each layer only calls the one below i
 UI Components  →  Redux Store  →  Services  →  StorageService (IndexedDB)  →  Claude API
 ```
 
-- **`src/store/`** — Three Redux slices: `pages` (page list + active page), `editor` (blocks for the open page), `ui` (slash menu, AI loading, sidebar state)
-- **`src/services/`** — Business logic: `BlockEngine` (block factory), `SlashParser`, `AIService`, `ExportService`
-- **`src/services/StorageService.ts`** — IndexedDB wrapper; degrades gracefully if storage is unavailable
+- **`src/store/`** — Three Redux slices: `pages` (page list, active page, **and all block data + block operations**), `editor` (transient editor state — the focused block), `ui` (slash menu, AI loading, sidebar state)
+- **`src/components/`** — `App`, `Sidebar`, `PageListItem`, `EditorCanvas`, `PageTitle`, `Block` (type router), `SlashMenu`, and `blocks/TextBlock` (one unified component for all text-bearing block types)
+- **`src/services/`** — Business logic: `BlockEngine` (block factory) and `SlashParser`; `AIService` (Phase 6) and `ExportService` (Phase 8) are planned
+- **`src/services/StorageService.ts`** — IndexedDB wrapper; degrades gracefully if storage is unavailable (built, wired to the store in Phase 5)
 - **`src/types/index.ts`** — Canonical `Page`, `Block`, and `BlockType` definitions
 
 ## AI Integration
@@ -68,17 +69,17 @@ The AI feature sends a natural-language prompt to Claude and receives a validate
 
 ## Project Status
 
-| Phase | Description | Status |
-|---|---|---|
-| 1 | Foundation — project setup, types, Redux shell, StorageService | ✅ Done |
-| 2 | Core editing — block components, Redux reducers, keyboard handling | 🔄 Active |
-| 3 | Slash commands | Planned |
-| 4 | Sidebar & page management | Planned |
-| 5 | Persistence middleware (auto-save) | Planned |
-| 6 | Claude AI integration | Planned |
-| 7 | Drag-and-drop reordering | Planned |
-| 8 | Markdown export | Planned |
-| 9 | Polish & accessibility | Planned |
-| 10 | Testing & deployment | Planned |
+| Phase | Description                                                        | Status    |
+| ----- | ------------------------------------------------------------------ | --------- |
+| 1     | Foundation — project setup, types, Redux shell, StorageService     | ✅ Done   |
+| 2     | Core editing — block components, Redux reducers, keyboard handling | ✅ Done   |
+| 3     | Slash commands                                                     | ✅ Done   |
+| 4     | Sidebar & page management                                          | ✅ Done   |
+| 5     | Persistence middleware (auto-save)                                 | 🔄 Active |
+| 6     | Claude AI integration                                              | Planned   |
+| 7     | Drag-and-drop reordering                                           | Planned   |
+| 8     | Markdown export                                                    | Planned   |
+| 9     | Polish & accessibility                                             | Planned   |
+| 10    | Testing & deployment                                               | Planned   |
 
 Full implementation details are in [`docs/KIROKU_PROJECT_INSTRUCTIONS.md`](docs/KIROKU_PROJECT_INSTRUCTIONS.md).
