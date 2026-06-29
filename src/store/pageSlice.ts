@@ -1,8 +1,7 @@
 import { createSlice } from "@reduxjs/toolkit";
 import type { PayloadAction } from "@reduxjs/toolkit";
 import type { Block, BlockProperties, BlockType, Page } from "../types";
-import { nanoid } from "nanoid";
-import { createBlock } from "../services/BlockEngine";
+import { createBlankPage } from "../services/PageEngine";
 
 interface PageState {
   list: Page[]; // Array of all the pages
@@ -18,18 +17,17 @@ const pageSlice = createSlice({
   name: "pages",
   initialState,
   reducers: {
-    createPage(state) {
-      // Default starter block
-      const firstBlock = createBlock("paragraph");
+    hydrate(
+      state,
+      action: PayloadAction<{ list: Page[]; activePageId: string | null }>,
+    ) {
+      const { list, activePageId } = action.payload;
+      state.list = list;
+      state.activePageId = activePageId;
+    },
 
-      const newPage = {
-        id: nanoid(),
-        title: "Untitled",
-        icon: "📄",
-        blocks: [firstBlock],
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-      };
+    createPage(state) {
+      const newPage = createBlankPage();
 
       const activePageId = newPage.id;
 
@@ -239,6 +237,7 @@ export const selectPageIds = (state: PageRootState): string[] => {
 };
 
 export const {
+  hydrate,
   createPage,
   deletePage,
   renamePage,

@@ -27,7 +27,7 @@ interface KirokuDB extends DBSchema {
 /**
  * Get or create the IndexedDB database instance
  * Creates object stores on first run or version upgrades
- * @returns 
+ * @returns
  */
 async function getDB(): Promise<IDBPDatabase<KirokuDB>> {
   return openDB<KirokuDB>(DB_NAME, DB_VERSION, {
@@ -54,9 +54,12 @@ export async function saveAll(pages: Page[]): Promise<void> {
   } catch (error) {
     console.error("Failed to save pages to IndexedDB:", error);
     // Attach original error as the cause for better diagnostics
-    throw new Error("Unable to save pages. Storage may be full or unavailable", {
-      cause: error,
-    });
+    throw new Error(
+      "Unable to save pages. Storage may be full or unavailable",
+      {
+        cause: error,
+      },
+    );
   }
 }
 
