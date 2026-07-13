@@ -5,10 +5,11 @@ import Block from "./Block";
 import { setFocusedBlockId } from "../store/editorSlice";
 import SlashMenu from "./SlashMenu";
 import PageTitle from "./PageTitle";
+import AILoadingIndicator from "./AILoadingIndicator";
 
 export default function EditorCanvas() {
   const dispatch = useAppDispatch();
-
+  const aiLoading = useAppSelector((s) => s.ui.aiLoading);
   const blocks = useAppSelector(selectActivePageBlocks);
   const activePage = useAppSelector((state) =>
     state.pages.list.find((p) => p.id === state.pages.activePageId),
@@ -68,6 +69,7 @@ export default function EditorCanvas() {
               />
             ))}
           </div>
+          {aiLoading && <AILoadingIndicator />}
         </div>
       </div>
       <SlashMenu />

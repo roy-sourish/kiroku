@@ -1,5 +1,6 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import type { SlashCommand } from "../services/SlashParser";
+import { generateAIBlocks } from "./aiThunks";
 
 interface UIState {
   slashMenuOpen: boolean;
@@ -76,6 +77,18 @@ const uiSlice = createSlice({
     toggleSidebar(state) {
       state.sidebarCollapsed = !state.sidebarCollapsed;
     },
+  },
+  extraReducers: (builder) => {
+    builder
+      .addCase(generateAIBlocks.pending, (state) => {
+        state.aiLoading = true;
+      })
+      .addCase(generateAIBlocks.fulfilled, (state) => {
+        state.aiLoading = false;
+      })
+      .addCase(generateAIBlocks.rejected, (state) => {
+        state.aiLoading = false;
+      });
   },
 });
 

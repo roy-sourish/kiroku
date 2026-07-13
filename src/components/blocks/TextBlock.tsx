@@ -20,7 +20,9 @@ import {
 
 // --- Services -----------------------------------------
 import { createBlock } from "../../services/BlockEngine";
-import { filterCommands } from "../../services/SlashParser";
+import { filterCommands, parseSlashInput } from "../../services/SlashParser";
+import { generateAIBlocks } from "../../store/aiThunks";
+import { toast } from "react-toastify";
 
 const TYPE_CLASSNAMES: Partial<Record<BlockType, string>> = {
   paragraph: "text-base text-gray-900",
@@ -69,6 +71,8 @@ export default function TextBlock({
   const slashConfirmRequest = useAppSelector((s) => s.ui.slashConfirmRequest);
   const isMyMenu = slashMenuOpen && slashMenuBlockId === block.id;
 
+  const aiLoading = useAppSelector((state) => state.ui.aiLoading);
+
   const dispatch = useAppDispatch();
   const divRef = useRef<HTMLDivElement>(null);
   const { handleConfirm } = useSlashConfirm(block, divRef);
@@ -103,7 +107,7 @@ export default function TextBlock({
     }
   };
 
-  const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+  const handleKeyDown = async (e: KeyboardEvent<HTMLDivElement>) => {
     // --- Slash Menu keyboard handling --------------------------------------
     if (isMyMenu) {
       if (e.key === "ArrowDown" || e.key === "ArrowUp") {
@@ -153,6 +157,31 @@ export default function TextBlock({
 
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
+
+      // AI Trigger ----------------
+      const parsed = parseSlashInput(block.content);
+      if (parsed?.isAIPrompt && parsed.query.trim() !== "" && !aiLoading) {
+        dispatch(updateBlock({ id: block.id, content: "" }));
+        if (divRef.current) divRef.current.innerText = "";
+
+        try {
+          // TODO: from user settings when a 2nd provider + picker exist
+          await dispatch(
+            generateAIBlocks({
+              prompt: parsed.query,
+              provider: "gemini",
+              afterId: block.id,
+            }),
+          ).unwrap();
+        } catch (error) {
+          toast.error(
+            error instanceof Error ? error.message : "Failed to generate block",
+          );
+        }
+
+        return;
+      }
+
       const newParagraphBlock = createBlock("paragraph");
       dispatch(addBlock({ afterId: block.id, block: newParagraphBlock }));
       dispatch(setFocusedBlockId(newParagraphBlock.id));

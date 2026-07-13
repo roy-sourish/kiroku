@@ -6,3 +6,80 @@
   pointer-events: none;
   cursor: text;
 }
+/* Tier 1 — "The Contented Loaf" (calm, classy) */
+@keyframes catFloat {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-2deg);
+  }
+  50% {
+    transform: translateY(-5px) rotate(2deg);
+  }
+}
+.cat-loaf {
+  animation: catFloat 2.4s ease-in-out infinite;
+}
+
+/* Tier 2 — "The Thinking Wiggle" */
+@keyframes catBob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+@keyframes catSquish {
+  0%,
+  92%,
+  100% {
+    transform: scale(1, 1);
+  }
+  95% {
+    transform: scale(1.08, 0.92);
+  } /* squash */
+  98% {
+    transform: scale(0.96, 1.04);
+  } /* stretch */
+}
+/* wrap the img in a span so two transforms don't fight —
+   outer bobs, inner squishes */
+.cat-bob {
+  animation: catBob 2.2s ease-in-out infinite;
+}
+.cat-squish {
+  animation: catSquish 3.7s ease-in-out infinite;
+}
+
+/* Tier 3 — "Maximum Cat" (unhinged, for the memory) */
+@keyframes catParty {
+  0%,
+  85%,
+  100% {
+    transform: rotate(0deg);
+  }
+  90% {
+    transform: rotate(180deg);
+  }
+  95% {
+    transform: rotate(360deg);
+  }
+}
+.cat-party {
+  animation: catParty 4s ease-in-out infinite;
+}
+
+/* Tier 99 - "The Boring Cat" */
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+.animate-float {
+  animation: float 2s ease-in-out infinite;
+}
