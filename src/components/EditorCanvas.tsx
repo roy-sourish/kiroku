@@ -1,11 +1,18 @@
 import { useEffect } from "react";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
-import { createPage, selectActivePageBlocks } from "../store/pageSlice";
-import Block from "./Block";
+import {
+  createPage,
+  moveBlock,
+  selectActivePageBlocks,
+} from "../store/pageSlice";
 import { setFocusedBlockId } from "../store/editorSlice";
 import SlashMenu from "./SlashMenu";
 import PageTitle from "./PageTitle";
 import AILoadingIndicator from "./AILoadingIndicator";
+import { DragDropProvider } from "@dnd-kit/react";
+import { isSortable } from "@dnd-kit/react/sortable";
+import SortableBlock from "./SortableBlock";
+import type { DragEndEvent } from "@dnd-kit/react";
 
 export default function EditorCanvas() {
   const dispatch = useAppDispatch();
@@ -33,6 +40,32 @@ export default function EditorCanvas() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activePage?.id]);
 
+  const handleOnDragEnd = (event: DragEndEvent) => {
+    if (event.canceled) return;
+    const { source } = event.operation;
+
+    if (!isSortable(source)) return;
+
+    const { initialIndex, index } = source;
+
+    if (initialIndex === index) return;
+
+    const activeId = String(source.id); // who is moving -> "A"
+
+    if (blocks[initialIndex]?.id !== activeId) {
+      console.warn("[dnd] store and library disagree — move skipped", {
+        activeId,
+        initialIndex,
+      });
+      return;
+    }
+
+    const overId = blocks[index]?.id; // who's seat A takes -> "C"
+    if (!overId) return;
+
+    dispatch(moveBlock({ activeId, overId }));
+  };
+
   if (!activePage) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center gap-4 text-gray-400">
@@ -59,16 +92,17 @@ export default function EditorCanvas() {
           </div>
 
           {/* Block list */}
-          <div>
+          <DragDropProvider onDragEnd={handleOnDragEnd}>
             {blocks.map((block, index) => (
-              <Block
+              <SortableBlock
                 key={block.id}
+                index={index}
                 block={block}
                 previousBlockId={blocks[index - 1]?.id ?? null}
                 isOnlyBlock={blocks.length === 1}
               />
             ))}
-          </div>
+          </DragDropProvider>
           {aiLoading && <AILoadingIndicator />}
         </div>
       </div>
