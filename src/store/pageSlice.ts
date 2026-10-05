@@ -154,36 +154,33 @@ const pageSlice = createSlice({
       activePage.updatedAt = Date.now();
     },
 
-    moveBlock(state, action: PayloadAction<{ id: string; toIndex: number }>) {
-      // 1. Find active page (guard)
+    moveBlock(
+      state,
+      action: PayloadAction<{ activeId: string; overId: string }>,
+    ) {
+      const { activeId, overId } = action.payload;
+
+      // Dropped on itself, Nothing to do — return early.
+      if (activeId === overId) return;
+
+      // Find the active page .
       const activePage = state.list.find((p) => p.id === state.activePageId);
       if (!activePage) return;
 
-      // 2. Find currentIndex of the block — bail if not found
-      const { id, toIndex } = action.payload;
+      const fromIndex = activePage.blocks.findIndex((b) => b.id === activeId);
+      const toIndex = activePage.blocks.findIndex((b) => b.id === overId);
 
-      const currentIndex = activePage.blocks.findIndex((b) => b.id === id);
-      if (currentIndex === -1) return;
+      if (fromIndex === -1 || toIndex === -1) return;
 
-      // 3. Clamp toIndex: Math.max(0, Math.min(toIndex, blocks.length - 1))
-      const clampedIndex = Math.max(
-        0,
-        Math.min(toIndex, activePage.blocks.length - 1),
-      );
-
-      // 4. Early return if currentIndex === clampedIndex (no-op)
-      if (currentIndex === clampedIndex) return;
-
-      // 5. const [moved] = blocks.splice(currentIndex, 1);  ← remove
-      const blockToMove = activePage.blocks[currentIndex];
+      const blockToMove = activePage.blocks[fromIndex];
       if (!blockToMove) return;
 
-      activePage.blocks.splice(currentIndex, 1);
+      // Read before removing: after the first splice, fromIndex points at a different block
+      activePage.blocks.splice(fromIndex, 1);
+      // "Take the target's slot": insert at toIndex, NOT toIndex + 1 (that's addBlock's "after" semantics)
+      activePage.blocks.splice(toIndex, 0, blockToMove);
 
-      //    blocks.splice(clampedIndex, 0, moved);           ← insert at new spot
-      activePage.blocks.splice(clampedIndex, 0, blockToMove);
-
-      // 6. updatedAt
+      // Update the page's updatedAt.
       activePage.updatedAt = Date.now();
     },
 
