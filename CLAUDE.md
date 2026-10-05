@@ -66,7 +66,7 @@ Network boundary              ← POST /api/generate
 
 | Slice | File | Responsibility |
 |---|---|---|
-| `pages` | `pageSlice.ts` | Page list, active page, **and all block data + block operations**. Includes `hydrate` and `insertAIBlocks`. |
+| `pages` | `pageSlice.ts` | Page list, active page, **and all block data + block operations**. Includes `hydrate`, `moveBlock`, and `insertAIBlocks`. |
 | `editor` | `editorSlice.ts` | Transient editor state — only `focusedBlockId` |
 | `ui` | `uiSlice.ts` | Slash menu state, `aiLoading`, sidebar collapse |
 
@@ -87,6 +87,8 @@ Always use the typed hooks from `src/store/hooks.ts` (`useAppDispatch`/`useAppSe
 - **`BlockIntent`** — a *description* of a block: just `{ type, content }`. **No id, no timestamps.** This is the shape that crosses the network.
 
 The distinction is deliberate and load-bearing: **the server returns intents; only the browser mints Blocks** — always via `createBlock()` in `BlockEngine.ts`, which stamps `defaultPropertiesFor(type)`. There is no second path for creating a block. A blank page is likewise constructed in exactly one place: `createBlankPage()` in `PageEngine.ts`.
+
+> **Ids over positions, everywhere.** Block operations identify blocks by `id`, never by array index: `addBlock({ afterId })`, `insertAIBlocks({ afterId })`, `moveBlock({ activeId, overId })`. An id is still correct after the list changes; an index is not. This is what lets an AI insertion land in the right place even if its trigger block was dragged mid-generation.
 
 ### Persistence (Phase 5)
 
@@ -123,6 +125,8 @@ TextBlock (Enter handler)        provider: "gemini"  ← the ONLY hardcoded prov
 
 > Note there are **two** functions named `generateBlocks` — one in `src/services/AIClient.ts` (browser; makes the HTTP call) and one in `server/AIService.ts` (server; runs the pipeline). They are on opposite sides of the network and do *not* call each other directly.
 
+> ⚠️ **Model deprecation.** `GeminiProvider.ts` hardcodes `gemini-2.5-flash`, which Google has deprecated (access limited to previously active projects; a shutdown is expected). It still responded as of Oct 2026. Migrating is a one-constant change in `GEMINI_URL` — nothing outside the provider knows which model is used.
+
 ### Key design decisions
 
 - **Serverless proxy over a browser-side key.** Notes stay local; only the prompt crosses the wire. The key never ships to the client.
@@ -154,17 +158,90 @@ TextBlock (Enter handler)        provider: "gemini"  ← the ONLY hardcoded prov
 
 Server-side errors are `console.error`'d in full (visible in the `vercel dev` terminal), but the client only ever receives a generic message — internal detail is never leaked to the browser.
 
+## Drag & Drop (Phase 7 — complete)
+
+Blocks can be reordered by dragging a handle in the left gutter, with the mouse, touch, or keyboard. Built on **`@dnd-kit/react` (0.5.x)**.
+
+### Component structure
+
+```
+EditorCanvas
+  └── DragDropProvider       onDragStart → closeSlashMenu()   onDragEnd → moveBlock
+        └── SortableBlock    useSortable({ id, index, disabled: aiLoading })
+              ├── <button ref={handleRef}>  ⠿   ← the ONLY drag activator
+              └── Block → TextBlock / <hr>     ← unchanged, knows nothing about dragging
+```
+
+- **`SortableBlock` is a wrapper above `Block`.** `Block.tsx` and `TextBlock.tsx` contain no drag code. Because the wrapper sits above the type router, every block type — including `divider`, which isn't a `TextBlock` — gets a handle for free, and future `TodoBlock`/`CodeBlock` components will too.
+- **Handle-only dragging.** Only the gutter button (`handleRef`) can start a drag, so drags never fight `contentEditable` for text selection. The keyboard sensor also only activates on the focused handle, so pressing Space inside a block can't start a drag (Space is already used to close the slash menu).
+- **`key={block.id}` sits on `SortableBlock`**, the outermost element in the `map`.
+
+### How a drop becomes a Redux action
+
+`@dnd-kit/react` enables `OptimisticSortingPlugin` by default: **it reorders the real DOM nodes during the drag.** Redux is not told until `onDragEnd`. Consequences:
+
+1. **You must dispatch on every successful drop.** If you don't, the screen shows the new order while Redux and IndexedDB keep the old one — and every piece of logic that reads the store's order (`previousBlockId` for Backspace, `afterId` for Enter) silently disagrees with what the user sees. A reload "fixes" it, which is how the bug hides.
+2. **The library gives positions, not an "over" block.** During an optimistic drag `source` and `target` are the same element; the source exposes `initialIndex` (where it started) and `index` (where it is now).
+
+`handleOnDragEnd` translates positions into the id-based reducer contract:
+
+```typescript
+if (event.canceled) return;                       // Escape → nothing to save
+if (!isSortable(source)) return;                  // type guard unlocks index fields
+if (initialIndex === index) return;               // dropped where it started
+
+const activeId = String(source.id);               // WHO moved (id is string | number)
+if (blocks[initialIndex]?.id !== activeId) return; // safety check: store and library must agree
+const overId = blocks[index]?.id;                 // WHOSE SLOT it takes — read from the
+                                                  // store's PRE-move order
+dispatch(moveBlock({ activeId, overId }));
+```
+
+`blocks[index]` works because Redux hasn't changed during the drag: the block sitting at the destination position in the old array is exactly the block whose slot is being taken. `blocks[initialIndex]` returns the dragged block itself, which is why it's used only for the safety check.
+
+### `moveBlock({ activeId, overId })` — "take the target's slot"
+
+The reducer finds both indexes by id, reads the moving block **before** removing it (after the first splice, `fromIndex` points at a different block), removes it, then inserts it at `toIndex`.
+
+> ⚠️ **Insert at `toIndex`, not `toIndex + 1`.** `+ 1` is `addBlock`'s "insert *after*" behaviour. In `moveBlock` it puts the block one slot too far. The bug is easy to miss: moving a block to the **end** still looks correct because `splice` silently clamps an out-of-range index and appends. Always test a move that ends in the middle of the list.
+
+The action is intent-shaped (ids, not a computed index), so the reducer is independent of the drag library — switching from the legacy `@dnd-kit/core` plan to `@dnd-kit/react` required **no** reducer change. Trade-off: future keyboard "move up/down" shortcuts (Phase 9) have no `overId`, so the component must look up the neighbour's id itself.
+
+### Edge cases handled
+
+| Situation | Handling |
+|---|---|
+| Drag starts while the slash menu is open | `onDragStart` dispatches `closeSlashMenu()` (unconditionally — on a closed menu Immer returns the same state, so nothing re-renders) |
+| Drag starts while AI is generating | `useSortable({ disabled: aiLoading })` + a dimmed, `cursor-not-allowed` handle. Prevents `insertAIBlocks` from changing the list mid-drag |
+| Library and store ever disagree | Safety check in `onDragEnd` warns and skips the move rather than making a wrong one |
+| Escape mid-drag | `event.canceled` → nothing dispatched; the block returns |
+| Long pages | dnd-kit auto-scrolls the editor's `overflow-auto` container |
+
+### Gotchas that have already bitten
+
+- **The slash menu's click-outside listener does not see handle presses.** dnd-kit calls `preventDefault()` on `pointerdown`; per the Pointer Events spec that suppresses the follow-up compatibility `mousedown`, which is what `SlashMenu.tsx` listens for. Confirmed by temporarily switching the listener to `pointerdown`. Don't rely on click-outside for drag cleanup — `onDragStart` covers mouse, touch, and keyboard.
+- **Type the handler with `DragEndEvent`** (`import type { DragEndEvent } from "@dnd-kit/react"`). An untyped `(event)` is implicit `any` and fails the strict build.
+- **Conflicting Tailwind utilities.** Two classes setting the same property (e.g. `opacity-0` and `opacity-30`) are resolved by stylesheet order, not `className` order. Choose between class sets in JS instead.
+- **Tailwind's `disabled:` variant needs the HTML `disabled` attribute.** `useSortable({ disabled })` does not set it on the button.
+
+### Known limitations (accepted)
+
+- **Caret/focus is lost after a pointer drop.** Text content is preserved (the DOM node moves with its text; edits are saved by id), but the user must click to resume typing. For keyboard drags, focus correctly stays on the handle so the block can be moved again.
+- **No `DragOverlay`.** An overlay renders a second copy of the dragged item; a second `TextBlock` with the same id would mean two `contentEditable`s, two focus listeners, and two slash-confirm watchers. If a floating preview is wanted later, render a static, non-editable snapshot.
+- **`@dnd-kit/react` is pre-1.0.** `^0.5.0` only admits patch releases (for 0.x, the minor version is the breaking-change boundary), and the lockfile pins the exact version. All drag code lives in two files (`EditorCanvas.tsx`, `SortableBlock.tsx`), so upgrades are contained.
+
 ## TypeScript Configuration
 
 Strict mode with `noUnusedLocals`, `noUnusedParameters`, `noUncheckedIndexedAccess`, and `verbatimModuleSyntax` (so type-only imports **must** use `import type`). `any` is effectively banned — use `unknown` and narrow. All IDs come from `nanoid`, never `crypto.randomUUID`.
 
+`noUncheckedIndexedAccess` types every `array[i]` as `T | undefined`, even right after a successful `findIndex`. Guard the read (`if (!item) return;`) rather than asserting.
+
 ## Implementation Phases
 
-Phases 1–6 are complete: foundation, core editing, slash commands, sidebar/pages, persistence, **AI integration**. Full roadmap in `docs/KIROKU_PROJECT_INSTRUCTIONS.md`.
+Phases 1–7 are complete: foundation, core editing, slash commands, sidebar/pages, persistence, AI integration, **drag-and-drop**. Full roadmap in `docs/KIROKU_PROJECT_INSTRUCTIONS.md`.
 
-- **Phase 7 (next):** Drag-and-drop block reordering (`moveBlock` already exists in `pageSlice`)
-- **Phase 8:** Markdown export
-- **Phase 9:** Polish — `React.memo`, paste handler, edge cases
+- **Phase 8 (next):** Markdown export
+- **Phase 9:** Polish — `React.memo`, paste handler, dedicated `TodoBlock`/`CodeBlock`, keyboard block movement, edge cases
 - **Phase 10:** Testing + deployment
 
 ### Deliberately deferred (with reasons)
@@ -177,10 +254,13 @@ These were considered and scoped out. They are decisions, not oversights:
 - **Zod for request validation.** Hand-rolled guards are ~6 lines and zero dependencies. Zod is the natural upgrade when the request schema grows (noted in `api/generate.ts`).
 - **Exponential backoff + jitter.** Backoff is currently linear (`attempt * 500ms`). Fine for solo usage; the real pattern is worth adopting under actual traffic.
 - **Vercel AI Gateway.** Evaluated as the managed alternative to the hand-built provider layer. Because `AIService` depends on the `LLMProvider` interface rather than a concrete provider, a `GatewayProvider` could be swapped in without touching anything else.
+- **`DragOverlay` and caret restoration after drop.** See *Known limitations* under Drag & Drop.
+- **`React.memo` on block rows.** During a drag the sortable rows re-render; acceptable at ~50 blocks. Revisit in Phase 9 if long documents feel slow.
 
 ## Notes for making changes
 
-- **Block components are one unified `TextBlock.tsx`** (routed by `Block.tsx`). `divider` renders as an `<hr>` in `Block.tsx`.
+- **Block components are one unified `TextBlock.tsx`** (routed by `Block.tsx`). `divider` renders as an `<hr>` in `Block.tsx`. **`todo` and `code` currently render as plain text** through `TextBlock` — there is no checkbox and `language` is unused. Dedicated components are planned for Phase 9.
+- **Every block is wrapped in `SortableBlock`** (in `EditorCanvas`). Add new block types to `Block.tsx`'s switch; they inherit dragging automatically. Never put drag code inside block components.
 - **Slash parsing** lives in `SlashParser.ts`: `parseSlashInput(content)` → `{ query, isAIPrompt }`, and `filterCommands(query)`. The `/ai` trigger uses `parseSlashInput`; the slash *menu* uses `filterCommands`.
 - **Typing a space closes the slash menu**, which is why `/ai some topic` reaches the plain Enter handler rather than the menu's Enter handler.
 - **Assets in `public/`** are served from the root path (`/orange-cat.png`) — no import needed.

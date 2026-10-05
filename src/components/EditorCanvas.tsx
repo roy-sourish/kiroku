@@ -13,6 +13,7 @@ import { DragDropProvider } from "@dnd-kit/react";
 import { isSortable } from "@dnd-kit/react/sortable";
 import SortableBlock from "./SortableBlock";
 import type { DragEndEvent } from "@dnd-kit/react";
+import { closeSlashMenu } from "../store/uiSlice";
 
 export default function EditorCanvas() {
   const dispatch = useAppDispatch();
@@ -60,7 +61,7 @@ export default function EditorCanvas() {
       return;
     }
 
-    const overId = blocks[index]?.id; // who's seat A takes -> "C"
+    const overId = blocks[index]?.id; // whose seat A takes -> "C"
     if (!overId) return;
 
     dispatch(moveBlock({ activeId, overId }));
@@ -92,7 +93,10 @@ export default function EditorCanvas() {
           </div>
 
           {/* Block list */}
-          <DragDropProvider onDragEnd={handleOnDragEnd}>
+          <DragDropProvider
+            onDragEnd={handleOnDragEnd}
+            onDragStart={() => dispatch(closeSlashMenu())}
+          >
             {blocks.map((block, index) => (
               <SortableBlock
                 key={block.id}

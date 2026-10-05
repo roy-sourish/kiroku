@@ -1,6 +1,7 @@
 import { useSortable } from "@dnd-kit/react/sortable";
 import type { Block as BlockData } from "../types";
 import Block from "./Block";
+import { useAppSelector } from "../store/hooks";
 
 interface SortableBlockProps {
   block: BlockData;
@@ -15,7 +16,12 @@ export default function SortableBlock({
   previousBlockId,
   isOnlyBlock,
 }: SortableBlockProps) {
-  const { ref, handleRef, isDragging } = useSortable({ id: block.id, index });
+  const aiLoading = useAppSelector((s) => s.ui.aiLoading);
+  const { ref, handleRef, isDragging } = useSortable({
+    id: block.id,
+    index,
+    disabled: aiLoading,
+  });
 
   return (
     <div
@@ -26,7 +32,12 @@ export default function SortableBlock({
         ref={handleRef}
         type="button"
         aria-label="Drag to reorder block"
-        className="absolute -left-8 top-1 px-1 text-gray-400 rounded cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 focus:opacity-100 hover:bg-gray-100"
+        disabled={aiLoading}
+        className={`absolute -left-8 top-1 px-1 text-gray-400 rounded ${
+          aiLoading
+            ? "cursor-not-allowed opacity-0 group-hover:opacity-30"
+            : "cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 focus:opacity-100 hover:bg-gray-100"
+        }`}
       >
         ⠿
       </button>
