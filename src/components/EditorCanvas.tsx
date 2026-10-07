@@ -8,6 +8,7 @@ import {
 import { setFocusedBlockId } from "../store/editorSlice";
 import SlashMenu from "./SlashMenu";
 import PageTitle from "./PageTitle";
+import PageActions from "./PageActions";
 import AILoadingIndicator from "./AILoadingIndicator";
 import { DragDropProvider } from "@dnd-kit/react";
 import { isSortable } from "@dnd-kit/react/sortable";
@@ -90,6 +91,7 @@ export default function EditorCanvas() {
           <div className="mb-8 flex items-center gap-2">
             <span>{activePage.icon}</span>
             <PageTitle />
+            <PageActions />
           </div>
 
           {/* Block list */}
