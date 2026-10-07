@@ -5,7 +5,7 @@
 
 ## Project Overview
 
-**Kiroku** (記録 — Japanese for "record") is a local-first, block-based note editor inspired by Notion. It's a React application that stores all note data in the browser's IndexedDB. A small serverless backend exists for one purpose only: proxying AI generation requests so the API key never reaches the browser. The editor supports multiple pages, eight block types, AI-powered content generation, drag-and-drop reordering, and (next) Markdown export.
+**Kiroku** (記録 — Japanese for "record") is a local-first, block-based note editor inspired by Notion. It's a React application that stores all note data in the browser's IndexedDB. A small serverless backend exists for one purpose only: proxying AI generation requests so the API key never reaches the browser. The editor supports multiple pages, eight block types, AI-powered content generation, drag-and-drop reordering, and Markdown export.
 
 ### What You'll Build
 
@@ -15,7 +15,7 @@ A production-ready note-taking application featuring:
 - Slash command menu for quick block insertion and transformation
 - AI content generation through a serverless proxy (Gemini today; provider-agnostic by design)
 - Drag-and-drop block reordering with mouse, touch, and keyboard
-- Markdown export
+- Markdown export (download or copy any page as `.md`)
 - Local-first architecture with IndexedDB persistence
 - Keyboard-first navigation with accessibility in mind
 
@@ -50,7 +50,7 @@ This project demonstrates **product engineering skills** that product-based comp
 
 ### Development Tools
 - **ESLint** — Code quality
-- **Vitest** — Unit testing framework (Phase 10)
+- **Vitest** — Unit testing framework (set up in Phase 8; covers the Markdown export pipeline so far)
 - **TypeScript strict mode** — `noUnusedLocals`, `noUnusedParameters`, `noUncheckedIndexedAccess`, `verbatimModuleSyntax`; `any` effectively banned
 
 ---
@@ -90,7 +90,8 @@ Inside the browser, each layer only calls the layer below it:
 - **Sidebar.tsx** — Page list + "New Page" button; subscribes to page IDs only (via `selectPageIds` + `shallowEqual`) so it never re-renders on block edits
 - **PageListItem.tsx** — A single page row: select-to-activate, active highlight, and a two-click delete confirm (local state + timer, no Redux)
 - **PageTitle.tsx** — Editable page title as a controlled `<input>`, dispatching `renamePage`
-- **EditorCanvas.tsx** — Main editing surface: icon + `PageTitle`, the `DragDropProvider` around the block list, the empty-state CTA, the AI loading indicator, and auto-focus for a blank new page
+- **PageActions.tsx** — "Export .md" and "Copy as Markdown" buttons beside the title. Builds the Markdown inside the click handlers (not during render), shows toasts for the result
+- **EditorCanvas.tsx** — Main editing surface: icon + `PageTitle` + `PageActions`, the `DragDropProvider` around the block list, the empty-state CTA, the AI loading indicator, and auto-focus for a blank new page
 - **SortableBlock.tsx** — Drag-and-drop wrapper around each block: calls `useSortable` and renders the gutter drag handle. Contains all per-block drag code
 - **Block.tsx** — Block type router (a `switch` on `block.type`, with a `never` exhaustiveness check)
 - **blocks/TextBlock.tsx** — One unified component for all text-bearing block types (paragraph, heading_1/2/3, quote, todo, code), styled via a `TYPE_CLASSNAMES` map. Also hosts the slash-menu keyboard handling and the `/ai` trigger. `divider` renders as an `<hr>` in `Block.tsx`
@@ -125,13 +126,17 @@ Inside the browser, each layer only calls the layer below it:
 > **Key decision — block actions target ids, not positions.** `addBlock({ afterId })`, `insertAIBlocks({ afterId })`, and `moveBlock({ activeId, overId })` all identify blocks by id. Ids stay correct when the list changes; indexes don't.
 
 ### Layer 3: Business Logic
-**Location:** `src/services/`
+**Location:** `src/services/` (pure helpers in `src/utils/`)
 
 - **BlockEngine.ts** — Block factory: `createBlock(type, content?, properties?)` and `defaultPropertiesFor(type)` (`{ checked: false }` for todo, `{ language: "plaintext" }` for code). The **only** place a `Block` is created
 - **PageEngine.ts** — `createBlankPage()`, the only place a blank page is constructed
 - **SlashParser.ts** — `parseSlashInput(content)` → `{ query, isAIPrompt } | null` (detects `/ai `), `filterCommands(query)`, and the `SLASH_COMMANDS` list
 - **AIClient.ts** — `generateBlocks(prompt, provider)`: the browser side of the AI call (`POST /api/generate`)
-- **ExportService.ts** *(Phase 8 — not yet built)* — `exportToMarkdown(blocks): string`
+- **markdown/ExportService.ts** — `blockToMarkdown(block): string | null` (null = skip) and `exportToMarkdown(page): string`. Pure; one `case` per block type with a `never` exhaustiveness check
+- **markdown/escape.ts** — `escapeLine` (block-level escaping, start of line only) and `unescapeLine` (its exact inverse, for the future importer)
+- **markdown/frontMatter.ts** — `serializeFrontMatter({ title, icon })`, values quoted with `JSON.stringify`
+- **`src/utils/filename.ts`** — `toSafeFilename(title)`: strips characters Windows forbids, trailing dots, reserved names (`CON`, `LPT1`…), caps length without splitting emoji
+- **`src/utils/download.ts`** — `downloadTextFile(name, text)`: Blob → object URL → hidden `<a download>` → delayed revoke. The only impure piece of export
 
 ### Layer 4: Persistence
 **Location:** `src/services/StorageService.ts` + `src/store/persistenceMiddleware.ts`
@@ -338,28 +343,34 @@ A `BlockIntent` is a **description** of a block, with no id and no timestamps. T
 
 ---
 
-### Phase 8: Export ← Next
-**Goal:** Markdown export
+### Phase 8: Markdown Export ✅ Complete
+**Goal:** Download or copy any page as a standard Markdown file
 
-1. Implement `ExportService.exportToMarkdown(blocks)` as a pure function
-2. Map each block type to Markdown:
-   - paragraph → plain text
-   - heading_1 / 2 / 3 → `#` / `##` / `###`
-   - code → triple-backtick fence with `properties.language`
-   - todo → `- [ ]` / `- [x]` from `properties.checked`
-   - quote → `> text`
-   - divider → `---`
-3. "Export .md" button in the editor header
-4. Trigger a browser download with a filename derived from the page title
-5. Copy-to-clipboard option (nice to have)
+1. Vitest set up — pulled forward from Phase 10, because a serializer without tests is a liability
+2. A written spec first: the block → Markdown table, escaping rules, and an explicit lossiness table
+3. `escapeLine` / `unescapeLine` — block-level escaping and its exact inverse, tested with table-driven "must change" and "must NOT change" rows
+4. `blockToMarkdown` for all 8 block types, and `exportToMarkdown(page)` with front matter (title + icon)
+5. `toSafeFilename` — Windows-safe filenames from page titles
+6. `downloadTextFile` — Blob + object URL + hidden `<a download>`
+7. `PageActions` — "Export .md" and "Copy as Markdown" next to the page title (not the global header: an action belongs next to the thing it acts on)
 
-**Deliverable:** Clicking Export downloads a `.md` file with correct formatting
+**Implementation notes:**
+- **Escaping is the real problem.** A paragraph whose text starts with `# ` would come back as a heading. `escapeLine` adds a `\` only when the *start* of a line would form block syntax — `#hashtag`, `-5 degrees` and `**bold**` are left alone. The first test table over-escaped those; the "must NOT change" rows exist to catch exactly that.
+- **The spec was wrong about headings.** It said heading text needed `escapeLine`. An experiment against a real parser (`marked`) showed text after `# ` is never re-parsed as block syntax — but a **trailing** `#` run is silently dropped as a closing sequence (`# Ends with #` → "Ends with"). That is what gets escaped now.
+- **Multi-line blocks:** every quote line gets `> ` (an empty line becomes a bare `>`, or the quote ends); todo continuation lines are indented 2 spaces; code fences are `max(3, longest backtick run + 1)` long and code is never escaped or trimmed.
+- **Empty todos are skipped**: `- [ ]` with no text is not a task in GitHub Markdown.
+- **Export reads Redux, not IndexedDB** — IndexedDB can be up to 500 ms behind because of the debounced save.
+- **No server.** The download is a Blob handed to the browser, so notes never leave the device.
+- **Import deferred to V2** — export is complete and useful on its own (see *Planned for V2*).
+
+**Deliverable:** ✅ Clicking Export downloads a correctly formatted `.md`; 111 unit tests across `escape`, `ExportService`, `frontMatter` and `filename`
 
 ---
 
 ### Phase 9: Polish & Optimization
 **Goal:** Performance and UX refinements
 
+0. **Bug fix:** AI blocks land on whichever page is active when the response arrives — switching pages mid-generation puts them on the wrong page. Pass `pageId` through `generateAIBlocks` → `insertAIBlocks` and target the page by id
 1. Dedicated `TodoBlock` (checkbox toggling `checked`) and `CodeBlock` (monospace, `language`)
 2. Keyboard block movement (e.g. Alt+↑/↓) — the component looks up the neighbour's id for `moveBlock`
 3. `React.memo` on block rows
@@ -375,7 +386,7 @@ A `BlockIntent` is a **description** of a block, with no id and no timestamps. T
 ### Phase 10: Testing & Deployment
 **Goal:** Production readiness
 
-1. Unit tests for services (`BlockEngine`, `SlashParser`, `ExportService`, `validateBlocks`, `debounce`)
+1. Unit tests for the remaining services (`BlockEngine`, `SlashParser`, `validateBlocks`, `debounce`) — Vitest is already configured, and the export pipeline is already covered
 2. Integration tests for Redux slices and the AI thunk
 3. E2E tests for critical flows
 4. CI pipeline (GitHub Actions)
@@ -383,6 +394,19 @@ A `BlockIntent` is a **description** of a block, with no id and no timestamps. T
 6. README and demo GIF / video
 
 **Deliverable:** Deployed app with >80% test coverage on services
+
+---
+
+### Planned for V2
+
+**Markdown import** — the other half of export. Already designed:
+
+1. Clean the input: strip a leading BOM, normalize `\r\n` → `\n`, split off front matter (title, icon)
+2. Tokenize with `marked`'s lexer only (no HTML renderer; lazy-loaded with `import()` so it costs nothing until used)
+3. Map tokens → `BlockIntent[]`; headings 4–6 clamp to `heading_3`; task items → `todo`; unsupported content (tables, HTML, images) becomes a paragraph of raw text **plus a warning**
+4. Policy: **degrade and warn**, never reject — any text is valid Markdown, and a user can't "retry" a file the way the AI path retries
+5. Mint blocks with `createBlock()` in a thunk; a pure `importPage` reducer adds the page
+6. Safety net: round-trip tests `parse(export(page)) ≈ page` and `export(parse(export(p))) === export(p)`; `unescapeLine` already exists for this
 
 ---
 
@@ -491,7 +515,7 @@ return { top: el.bottom, left: el.left };
 - **validateBlocks** — not-an-array, null items, bad `type`, non-string `content`, empty array, extra fields stripped
 - **debounce** — trailing fire, `flush`, `cancel`
 - **isProviderName** — rejects unknown strings and non-strings
-- **ExportService** — Markdown for each block type (Phase 8)
+- **Markdown export ✅** — `escapeLine`/`unescapeLine` (incl. the inverse property), `blockToMarkdown` for every block type, `exportToMarkdown`, `serializeFrontMatter`, `toSafeFilename` (111 tests)
 
 ### Integration Tests
 - **pageSlice.moveBlock** — down to the end, up to the start, **down by one (middle)**, same-id no-op, unknown-id no-op, `updatedAt` bumped
@@ -534,6 +558,9 @@ return { top: el.bottom, left: el.left };
 - [x] AI JSON parsing/validation failures retried, then reported
 - [x] Slash menu closes when a drag starts
 - [x] No dragging during AI generation
+- [x] Export escapes text that looks like Markdown syntax, so it round-trips as plain text
+- [x] Export filenames are safe on Windows (forbidden characters, reserved names, emoji-safe length cap)
+- [ ] Switching pages during AI generation puts blocks on the wrong page (Phase 9)
 - [ ] Paste handler strips rich HTML (Phase 9)
 - [ ] IndexedDB unavailable → warning banner
 - [ ] `AIClient` tolerates non-JSON error bodies (e.g. an HTML 404)
@@ -554,6 +581,8 @@ vercel dev                       # editor + /api, http://localhost:3000
 npm run build                    # tsc -b (app, node, server) + vite build
 npm run preview
 npm run lint
+npm test                         # Vitest, watch mode
+npm run test:run                 # Vitest, once
 ```
 
 **Never** place the API key in a `VITE_` variable or anywhere under `src/`. Restart `vercel dev` after changing environment variables.
@@ -571,9 +600,10 @@ npm run lint
 | **M5: Persistence** | IndexedDB integration | ✅ Done |
 | **M6: AI Generation** | Proxy + validated generation | ✅ Done |
 | **M7: Drag & Drop** | Block reordering | ✅ Done |
-| **M8: Export** | Markdown download | 🔄 Next |
-| **M9: Polish** | Block components, performance, a11y | Planned |
+| **M8: Export** | Markdown download + copy | ✅ Done |
+| **M9: Polish** | Block components, performance, a11y | 🔄 Next |
 | **M10: Production** | Tests + deployment | Planned |
+| **V2: Import** | Markdown import | Planned |
 
 ---
 
@@ -615,9 +645,10 @@ npm run lint
 3. **Debugging skills** — Predict before you run; change one variable at a time; don't trust a single passing case.
 4. **Code review mindset** — Read your own diff before every commit.
 5. **Keep docs honest** — a reference that lies is worse than no reference.
+6. **Test the assumption, not just the code** — the heading-escaping rule was wrong in the spec; a three-line experiment against a real Markdown parser caught it before it shipped.
 
 ---
 
-**Document Version:** 1.2
-**Last Updated:** 2026-10-05 (reflects code through Phase 7)
+**Document Version:** 1.3
+**Last Updated:** 2026-10-07 (reflects code through Phase 8)
 **Difficulty:** Intermediate to Advanced

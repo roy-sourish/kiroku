@@ -300,17 +300,17 @@ const steps = [
   },
   {
     label: 'Step 08 — <strong>Typing "/ai" → AI prompt box</strong>',
-    desc: 'Typing "/ai" inserts a special AI input block. The user types their prompt and presses Enter to send it to Claude.',
+    desc: 'Typing "/ai" inserts a special AI input block. The user types their prompt and presses Enter; only the prompt is sent, through a serverless proxy, to Gemini.',
     render: renderStep7
   },
   {
     label: 'Step 09 — <strong>AI generates blocks</strong>',
-    desc: 'Claude returns a JSON array of blocks. A skeleton loader shows while waiting, then the blocks animate in — indistinguishable from manually typed blocks.',
+    desc: 'Gemini returns a JSON array of blocks, which the server validates before sending back. A skeleton loader shows while waiting, then the blocks animate in — indistinguishable from manually typed blocks.',
     render: renderStep8
   },
   {
     label: 'Step 10 — <strong>Full page built, ready to export</strong>',
-    desc: 'The page now has a mix of manually written and AI-generated blocks. Clicking "Export .md" converts every block to Markdown and downloads the file.',
+    desc: 'The page now has a mix of manually written and AI-generated blocks. Clicking "Export .md" converts every block to Markdown and downloads the file ("Copy as Markdown" puts the same text on the clipboard).',
     render: renderStep9
   },
 ];
@@ -492,10 +492,10 @@ function renderStep9() {
 
 function handleExport() {
   if (current !== 9) return;
-  const md = `# My Notes\n\nThe goal of this project is to build a block-based note editor\n\n# Features\n\n## Block-based editing\n\nEvery piece of content is a discrete block with a type and content.\n\n## Slash commands\n\nTyping "/" opens a command palette to insert any block type.\n\n- [x] Build the block engine\n- [ ] Add AI slash command`;
+  const md = `---\ntitle: "My Notes"\nicon: "📄"\n---\n\nThe goal of this project is to build a block-based note editor\n\n# Features\n\n## Block-based editing\n\nEvery piece of content is a discrete block with a type and content.\n\n## Slash commands\n\nTyping "/" opens a command palette to insert any block type.\n\n- [x] Build the block engine\n\n- [ ] Add AI slash command`;
   const preview = document.createElement('div');
   preview.className = 'export-preview';
-  preview.innerHTML = `<div class="export-header"><span class="export-title">EXPORT PREVIEW — my-notes.md</span><button class="close-export" onclick="this.parentElement.parentElement.remove()">✕ Close</button></div><div class="export-code">${md}</div>`;
+  preview.innerHTML = `<div class="export-header"><span class="export-title">EXPORT PREVIEW — My Notes.md</span><button class="close-export" onclick="this.parentElement.parentElement.remove()">✕ Close</button></div><div class="export-code">${md}</div>`;
   document.querySelector('.editor-area').style.position = 'relative';
   document.querySelector('.editor-area').appendChild(preview);
 }

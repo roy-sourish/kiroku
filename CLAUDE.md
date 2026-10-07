@@ -14,13 +14,15 @@ vercel dev        # Frontend + serverless functions together on http://localhost
 npm run build     # Type-check all 3 TS projects (tsc -b) then bundle with Vite
 npm run preview   # Preview the production build locally
 npm run lint      # Run ESLint across all files
+npm test          # Vitest in watch mode — re-runs on every save
+npm run test:run  # Vitest once — run before every commit
 ```
 
 > **Use `vercel dev`, not `npm run dev`, when touching anything AI-related.** Plain Vite doesn't execute `/api` functions, so `/api/generate` will 404. Note `vercel dev` serves on port **3000**, not 5173.
 
 Environment variables live in Vercel's env store (`vercel env add GEMINI_API_KEY`), not in a committed file. `vercel dev` pulls Development-scoped vars into memory automatically — no `vercel env pull` needed. Vars are read once at startup, so **restart `vercel dev` after changing them**. Note: Vercel does not permit *sensitive* variables in the Development environment, so `GEMINI_API_KEY` is stored as a regular variable.
 
-There are no tests yet (planned for Phase 10).
+Tests use **Vitest** (added in Phase 8). Test files live next to the code they test (`escape.ts` → `escape.test.ts`) and run in Node, so only **pure functions** are unit-tested; thin browser-side-effect wrappers (`download.ts`, the clipboard call) are tested manually. Prefer table-driven tests (`it.each`) with both "must change" and "must NOT change" rows — the second kind is what catches over-eager logic.
 
 ## Architecture
 
@@ -55,7 +57,7 @@ UI Components (React)         ← App.tsx, components/, hooks/, main.tsx (bootst
      ↓
 State (Redux Toolkit)         ← store/ (slices, thunks, persistence middleware)
      ↓
-Services                      ← services/ (BlockEngine, PageEngine, SlashParser, AIClient)
+Services                      ← services/ (BlockEngine, PageEngine, SlashParser, AIClient, markdown/)
      ↓
 Persistence (IndexedDB)       ← services/StorageService.ts via idb
      ↓
@@ -230,6 +232,88 @@ The action is intent-shaped (ids, not a computed index), so the reducer is indep
 - **No `DragOverlay`.** An overlay renders a second copy of the dragged item; a second `TextBlock` with the same id would mean two `contentEditable`s, two focus listeners, and two slash-confirm watchers. If a floating preview is wanted later, render a static, non-editable snapshot.
 - **`@dnd-kit/react` is pre-1.0.** `^0.5.0` only admits patch releases (for 0.x, the minor version is the breaking-change boundary), and the lockfile pins the exact version. All drag code lives in two files (`EditorCanvas.tsx`, `SortableBlock.tsx`), so upgrades are contained.
 
+## Markdown Export (Phase 8 — complete)
+
+The **Export .md** and **Copy as Markdown** buttons next to the page title turn the active page into a standard Markdown file. Import is deferred to V2 (see *Deliberately deferred*).
+
+### Data flow
+
+```
+PageActions (click)
+  → exportToMarkdown(page)                         pure: Page in, string out
+  → downloadTextFile(toSafeFilename(title), md)    or    navigator.clipboard.writeText(md)
+```
+
+| File | Role | Tested |
+|---|---|---|
+| `services/markdown/escape.ts` | `escapeLine` / `unescapeLine` — block-level escaping and its exact inverse | unit |
+| `services/markdown/ExportService.ts` | `blockToMarkdown` (one block) and `exportToMarkdown` (whole page) | unit |
+| `services/markdown/frontMatter.ts` | `serializeFrontMatter` — title + icon | unit |
+| `utils/filename.ts` | `toSafeFilename` — page title → a filename every OS accepts | unit |
+| `utils/download.ts` | Blob → object URL → hidden `<a download>` → delayed revoke | manual |
+| `components/PageActions.tsx` | The two buttons + toasts | manual |
+
+### Output format
+
+```md
+---
+title: "Groceries"
+icon: "🛒"
+---
+
+# Weekend shopping
+
+- [x] Milk
+```
+
+Front matter values go through `JSON.stringify` (a JSON string is also a valid YAML string, so `:` and `"` in titles are safe). Blocks are separated by **one blank line**; the file ends with exactly one `\n`.
+
+| Block | Markdown | Multi-line rule |
+|---|---|---|
+| paragraph | text, each line escaped | lines trimmed at the start, then escaped |
+| heading_1/2/3 | `#` / `##` / `###` + text | newlines → spaces (a heading is one line) |
+| quote | `> ` on **every** line | an empty line becomes a bare `>` (otherwise it ends the quote) |
+| todo | `- [ ] ` / `- [x] ` | continuation lines indented 2 spaces |
+| code | fence + language | content written verbatim — never trimmed or escaped |
+| divider | `---` | — |
+
+**Code fence length** = `max(3, longest backtick run in the content + 1)`. Language `plaintext` → bare fence.
+
+### Escaping rules
+
+- **Only the start of a line is escaped, and only when it would really form block syntax.** `# x`, `> x`, `- x`, `1. x`, ` ``` `, `---` are escaped; `#hashtag`, `-5 degrees`, `1.5 kg`, `**bold**`, `a - b` are not. Inline Markdown is never escaped — Kiroku has no inline formatting, so a user typing `**bold**` means it.
+- **Headings do NOT use `escapeLine`.** Text after `# ` is not re-parsed as block syntax (verified: `# # x` is a heading with text `# x`). Instead, a trailing `#` run after a space is escaped, because Markdown treats it as an optional closing sequence and silently drops it (`# Ends with #` renders as **Ends with**).
+- **`unescapeLine` is the exact inverse** of `escapeLine`: it only removes a backslash if re-escaping the result reproduces the line. A line that already starts with `\` gets an extra one on export, so a future import can tell ours from the user's.
+
+### Lossiness (accepted, by design)
+
+| Lost on export | Why |
+|---|---|
+| Empty paragraphs, quotes and todos | Spacing only; and `- [ ]` with no text is **not** a task in GitHub Markdown (it becomes the literal text `[ ]`) |
+| Newlines inside headings | A Markdown heading must be one line |
+| Leading spaces on text lines | Markdown ignores them; 4+ spaces would turn the line into a code block |
+| A blank line inside one paragraph | Markdown would read it as two paragraphs |
+| `id`, `createdAt`, `aiGenerated` | Internal data, not meaningful outside Kiroku |
+
+### Key decisions
+
+- **Export reads Redux, not IndexedDB.** Redux is always current; IndexedDB can lag up to 500 ms behind the debounced save.
+- **Pure core, thin impure edge.** All logic lives in pure, unit-tested functions; the DOM-touching code is a ~10-line wrapper.
+- **No server involved.** The Blob download happens entirely in the browser, so notes stay local-first.
+- **Markdown is built in the click handler, not during render.** `PageActions` re-renders on every keystroke; converting the page each render would be wasted work.
+- **Page-level actions sit next to the page title**, not in the global header — an action belongs next to the thing it acts on.
+- **`blockToMarkdown` uses the `never` exhaustiveness check.** Adding a block type breaks the build until export handles it.
+
+### Gotchas that have already bitten
+
+- **Separate blocks with a blank line.** A `---` directly under a text line turns that text into a heading (a "setext heading").
+- **Over-escaping is a bug too.** Escaping `#hashtag` or `**bold**` makes the file ugly and breaks intended formatting. Every escape rule needs "must NOT change" test rows.
+- **Verify Markdown behaviour against a real parser.** The original spec said headings needed `escapeLine`; a quick experiment with `marked` proved otherwise and exposed the trailing-`#` bug instead.
+- **`"😀".length === 2`.** Cap filename length with `Array.from(name).slice(...)`, or an emoji can be cut in half.
+- **Revoke the object URL after a delay**, not on the next line — revoking immediately can cancel the download in some browsers.
+- **The clipboard needs a secure context** (`https://` or `localhost`), can be refused, and must be `await`ed inside the `try`.
+- **Windows filenames:** `< > : " / \ | ? *` are forbidden, trailing dots are silently stripped, and `CON`, `PRN`, `AUX`, `NUL`, `COM1–9`, `LPT1–9` are reserved.
+
 ## TypeScript Configuration
 
 Strict mode with `noUnusedLocals`, `noUnusedParameters`, `noUncheckedIndexedAccess`, and `verbatimModuleSyntax` (so type-only imports **must** use `import type`). `any` is effectively banned — use `unknown` and narrow. All IDs come from `nanoid`, never `crypto.randomUUID`.
@@ -238,11 +322,11 @@ Strict mode with `noUnusedLocals`, `noUnusedParameters`, `noUncheckedIndexedAcce
 
 ## Implementation Phases
 
-Phases 1–7 are complete: foundation, core editing, slash commands, sidebar/pages, persistence, AI integration, **drag-and-drop**. Full roadmap in `docs/KIROKU_PROJECT_INSTRUCTIONS.md`.
+Phases 1–8 are complete: foundation, core editing, slash commands, sidebar/pages, persistence, AI integration, drag-and-drop, **Markdown export**. Full roadmap in `docs/KIROKU_PROJECT_INSTRUCTIONS.md`.
 
-- **Phase 8 (next):** Markdown export
-- **Phase 9:** Polish — `React.memo`, paste handler, dedicated `TodoBlock`/`CodeBlock`, keyboard block movement, edge cases
-- **Phase 10:** Testing + deployment
+- **Phase 8 ✅:** Markdown export
+- **Phase 9 (next):** Polish — fix AI blocks landing on the wrong page if the user switches pages mid-generation (pass `pageId` through `generateAIBlocks` → `insertAIBlocks`), `React.memo`, paste handler, dedicated `TodoBlock`/`CodeBlock`, keyboard block movement, edge cases
+- **Phase 10:** Testing + deployment (Vitest is already set up from Phase 8; this phase extends coverage to Redux, the AI thunk and E2E)
 
 ### Deliberately deferred (with reasons)
 
@@ -256,10 +340,13 @@ These were considered and scoped out. They are decisions, not oversights:
 - **Vercel AI Gateway.** Evaluated as the managed alternative to the hand-built provider layer. Because `AIService` depends on the `LLMProvider` interface rather than a concrete provider, a `GatewayProvider` could be swapped in without touching anything else.
 - **`DragOverlay` and caret restoration after drop.** See *Known limitations* under Drag & Drop.
 - **`React.memo` on block rows.** During a drag the sortable rows re-render; acceptable at ~50 blocks. Revisit in Phase 9 if long documents feel slow.
+- **Markdown import → V2.** Export ships first because it is complete on its own. Import is already designed: parse with `marked`'s lexer (no HTML renderer), strip front matter and BOM and normalize CRLF first, map tokens to `BlockIntent[]`, and **degrade with warnings** rather than reject (any text is valid Markdown, and a user can't "retry" a file the way the AI path retries). `unescapeLine` already exists as the exact inverse of export's escaping; the round-trip test `parse(export(page)) ≈ page` will be its main safety net.
+- **Exporting all pages at once (zip) and PDF/HTML export.** Single-page Markdown covers the need; `exportToMarkdown` is pure, so bulk export is a loop plus a zip library when it's wanted.
 
 ## Notes for making changes
 
 - **Block components are one unified `TextBlock.tsx`** (routed by `Block.tsx`). `divider` renders as an `<hr>` in `Block.tsx`. **`todo` and `code` currently render as plain text** through `TextBlock` — there is no checkbox and `language` is unused. Dedicated components are planned for Phase 9.
+- **Adding a block type also means adding a `case` to `blockToMarkdown`** (`services/markdown/ExportService.ts`) — the `never` check fails the build until you do, so don't silence it.
 - **Every block is wrapped in `SortableBlock`** (in `EditorCanvas`). Add new block types to `Block.tsx`'s switch; they inherit dragging automatically. Never put drag code inside block components.
 - **Slash parsing** lives in `SlashParser.ts`: `parseSlashInput(content)` → `{ query, isAIPrompt }`, and `filterCommands(query)`. The `/ai` trigger uses `parseSlashInput`; the slash *menu* uses `filterCommands`.
 - **Typing a space closes the slash menu**, which is why `/ai some topic` reaches the plain Enter handler rather than the menu's Enter handler.
