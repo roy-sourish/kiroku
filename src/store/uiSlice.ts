@@ -2,7 +2,7 @@ import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import type { SlashCommand } from "../services/SlashParser";
 import { generateAIBlocks } from "./aiThunks";
 
-export type StorageStatus = "ok" | "load-failed";
+export type StorageStatus = "ok" | "load-failed" | "save-failed";
 
 interface UIState {
   slashMenuOpen: boolean;

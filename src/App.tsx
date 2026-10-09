@@ -23,6 +23,15 @@ export default function App() {
             Reload to try again.
           </div>
         )}
+        {storageStatus === "save-failed" && (
+          <div
+            role="alert"
+            className="border-b border-amber-200 bg-amber-50 px-6 py-2 text-sm text-amber-900"
+          >
+            Your latest changes couldn’t be saved. Kiroku will retry on your
+            next edit. Use Export .md to keep a copy.
+          </div>
+        )}
         {/* Main layout: Sidebar + Editor */}
         <div className="flex flex-1 overflow-hidden">
           <aside className="w-64 bg-gray-50 border-r border-gray-200 p-4">
