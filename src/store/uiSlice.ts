@@ -2,6 +2,8 @@ import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import type { SlashCommand } from "../services/SlashParser";
 import { generateAIBlocks } from "./aiThunks";
 
+export type StorageStatus = "ok" | "load-failed";
+
 interface UIState {
   slashMenuOpen: boolean;
   slashMenuPosition: { top: number; left: number } | null;
@@ -12,6 +14,7 @@ interface UIState {
   slashConfirmRequest: SlashCommand | null;
   aiLoading: boolean;
   sidebarCollapsed: boolean;
+  storageStatus: StorageStatus;
 }
 
 const initialState: UIState = {
@@ -24,6 +27,7 @@ const initialState: UIState = {
   slashConfirmRequest: null,
   aiLoading: false,
   sidebarCollapsed: false,
+  storageStatus: "ok",
 };
 
 const uiSlice = createSlice({
@@ -77,6 +81,10 @@ const uiSlice = createSlice({
     toggleSidebar(state) {
       state.sidebarCollapsed = !state.sidebarCollapsed;
     },
+
+    setStorageStatus(state, action: PayloadAction<StorageStatus>) {
+      state.storageStatus = action.payload;
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -100,6 +108,7 @@ export const {
   clearSlashConfirmRequest,
   setAILoading,
   toggleSidebar,
+  setStorageStatus,
 } = uiSlice.actions;
 
 export default uiSlice.reducer;

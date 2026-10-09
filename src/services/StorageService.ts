@@ -71,14 +71,14 @@ export async function loadAll(): Promise<Page[]> {
   try {
     const db = await getDB();
     const pages = await db.get("pages", STORAGE_KEYS.ALL_PAGES);
-    // handle for first-time users
-    return pages || [];
+    if (pages === undefined) return [];
+    return pages;
   } catch (error) {
     console.error("Failed to load pages from IndexedDB", error);
 
-    // Graceful degradation: if IndexedDB fails we want the app to still work with empty state.
-    // Users can create new pages.
-    return [];
+    throw new Error("Unable to load pages. Storage may be unavailable", {
+      cause: error,
+    });
   }
 }
 
